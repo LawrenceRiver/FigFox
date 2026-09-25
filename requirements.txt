@@ -1,0 +1,13 @@
+pillow==11.3.0
+lxml==6.1.1
+cairocffi==1.7.1
+CairoSVG==2.9.0
+cffi==2.1.1
+cssselect2==0.10.1
+defusedxml==0.7.1
+pycparser==3.0
+tinycss2==1.5.1
+webencodings==0.6.1
+vtracer==0.6.12
+numpy==2.5.3
+opencv-python-headless==4.13.0.92

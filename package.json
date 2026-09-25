@@ -1,0 +1,9 @@
+{
+  "name": "figfox-plus-local-rendering",
+  "private": true,
+  "version": "0.1.0",
+  "dependencies": {
+    "imagetracerjs": "1.2.6",
+    "mathjax-full": "3.2.2"
+  }
+}

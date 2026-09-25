@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="920" viewBox="0 0 760 920">
+  <style>
+    text { font-family: system-ui, sans-serif; font-size: 15px; fill: #20252b; }
+    .box { fill: #f7f4ee; stroke: #2c333a; stroke-width: 1.4; }
+    .choice { fill: #fff8e8; stroke: #8a5a12; stroke-width: 1.4; }
+  </style>
+  <rect width="760" height="920" fill="#fff"/>
+  <rect class="box" x="250" y="24" width="260" height="52" rx="8"/>
+  <text x="380" y="55" text-anchor="middle">5.5 生成 SVG</text>
+  <line x1="380" y1="76" x2="380" y2="108" stroke="#2c333a" stroke-width="1.4"/>
+  <polygon points="380,116 374,104 386,104" fill="#2c333a"/>
+  <rect class="box" x="210" y="116" width="340" height="52" rx="8"/>
+  <text x="380" y="147" text-anchor="middle">整页看一次：原图对当前渲染</text>
+  <line x1="250" y1="168" x2="160" y2="214" stroke="#2c333a" stroke-width="1.4"/>
+  <line x1="510" y1="168" x2="600" y2="214" stroke="#2c333a" stroke-width="1.4"/>
+  <text x="168" y="198" font-size="13">一整块一起漂了</text>
+  <text x="498" y="198" font-size="13">没有这种大错</text>
+  <rect class="choice" x="40" y="214" width="220" height="52" rx="8"/>
+  <text x="150" y="245" text-anchor="middle">再跑一次 5.5</text>
+  <rect class="box" x="500" y="214" width="200" height="52" rx="8"/>
+  <text x="600" y="245" text-anchor="middle">1/2 Crop</text>
+  <line x1="150" y1="266" x2="150" y2="300" stroke="#2c333a" stroke-width="1.4"/>
+  <line x1="150" y1="300" x2="600" y2="300" stroke="#2c333a" stroke-width="1.4"/>
+  <line x1="600" y1="266" x2="600" y2="300" stroke="#2c333a" stroke-width="1.4"/>
+  <line x1="380" y1="300" x2="380" y2="332" stroke="#2c333a" stroke-width="1.4"/>
+  <polygon points="380,340 374,328 386,328" fill="#2c333a"/>
+  <rect class="box" x="210" y="340" width="340" height="52" rx="8"/>
+  <text x="380" y="371" text-anchor="middle">第一次请求：只列问题</text>
+  <line x1="380" y1="392" x2="380" y2="424" stroke="#2c333a" stroke-width="1.4"/>
+  <polygon points="380,432 374,420 386,420" fill="#2c333a"/>
+  <rect class="box" x="190" y="432" width="380" height="52" rx="8"/>
+  <text x="380" y="463" text-anchor="middle">第二次请求：写程序并执行</text>
+  <line x1="380" y1="484" x2="380" y2="516" stroke="#2c333a" stroke-width="1.4"/>
+  <polygon points="380,524 374,512 386,512" fill="#2c333a"/>
+  <rect class="box" x="290" y="524" width="180" height="52" rx="8"/>
+  <text x="380" y="555" text-anchor="middle">回执</text>
+  <line x1="290" y1="576" x2="170" y2="622" stroke="#2c333a" stroke-width="1.4"/>
+  <line x1="470" y1="576" x2="590" y2="622" stroke="#2c333a" stroke-width="1.4"/>
+  <text x="70" y="610" font-size="13">必须项没收口</text>
+  <text x="500" y="610" font-size="13">这些都已落地</text>
+  <rect class="choice" x="30" y="622" width="300" height="72" rx="8"/>
+  <text x="180" y="650" text-anchor="middle">再开一次</text>
+  <text x="180" y="672" text-anchor="middle">只处理回执里的问题</text>
+  <rect class="box" x="490" y="632" width="200" height="52" rx="8"/>
+  <text x="590" y="663" text-anchor="middle">停止</text>
+  <line x1="180" y1="694" x2="180" y2="760" stroke="#2c333a" stroke-width="1.4"/>
+  <line x1="180" y1="760" x2="590" y2="760" stroke="#2c333a" stroke-width="1.4"/>
+  <polygon points="590,768 584,756 596,756" fill="#2c333a"/>
+  <text x="300" y="820" text-anchor="middle" font-size="13">必须项：交叠、对齐、几何，以及已经检出但没落地的照片</text>
+  <text x="300" y="844" text-anchor="middle" font-size="13">这一次带着已有的 1/2 Crop，每条问题选定原图对当前渲染的那一对</text>
+</svg>
