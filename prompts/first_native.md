@@ -1,84 +1,99 @@
-直接扫描原图生成可编辑的svg代码，颜色由你直接读取原图。按这个顺序做，不要跳。
-1. 底框。全部做完后按原图比例 refit 上下左右。
-2. 传导作图：从原图确认当前对象及其与起点、邻居的关系，再刻画。每完成一个底框，refit 框里内容。
-3. 传导时建立原图对象、已刻画ID与SAM素材ID的对应关系；完整刻画并补漏后，最后沿用该关系执行替换。SAM未覆盖内容保留。
-4. 交之前对照原图补漏。漏掉的补上。
-每个底框必须带 id，如 id="f01"。
+Directly inspect the original figure to generate editable SVG code; extract colors directly from the original figure. Follow this order; do not skip steps.
+1. Base frames: After all are completed, refit top, bottom, left, and right coordinates against original figure proportions.
+2. Conduction drawing: Confirm the current object and its relationships to the origin and neighbors from the original figure before constructing it in SVG. After completing each base frame, refit the content inside that frame.
+3. During conduction, establish mappings among original figure objects, constructed element IDs, and SAM asset IDs; after complete SVG construction and filling omissions, apply these mappings at the end to execute replacement. Content not covered by SAM must be retained.
+4. Before submitting, cross-check against the original figure to fill omissions. Add any missing elements.
+Every base frame must have an id, such as id="f01".
 
-【Output】
-只输出一份完整可编辑 svg，含底框和传导作图后的字、图、icon、箭头。不要输出别的。
+[Output]
+Output only a single, complete, editable SVG containing base frames and the text, images, icons, and arrows from conduction drawing. Do not output anything else.
 
-【画布】
+[Canvas]
 {{CANVAS}}
 
-【箭头库】
-编号就是 reference。切图在附图里。
-SAM 库只用来判断两件事：双头还是单头，头像素是多少。
+[Arrow Library]
+The identifier is the reference. Image crops are provided in the attached images.
+The SAM library is used only to determine two things: whether it is double-headed or single-headed, and head dimensions in pixels.
 {{ARROW_LIBRARY}}
 
-【底框】
-这一步只写框，不写框里的字、图、icon、箭头。
+[Base Frames]
+In this step, write only the frames; do not write the text, images, icons, or arrows inside the frames.
 
-先一起按原图规划全部底框，再一起落成。原图里底框是对齐的，建立时相对位置也要对齐。落成前只要做到平级不要交叠。套在里面的不算交叠，内框必须包在外框里。最短看贴着的那条边：上面的下对下面的上，左边的右对右边的左。
+First plan all base frames together according to the original figure, then establish them together. Base frames that are aligned in the original figure must also have their relative positions aligned when created. Before finalizing, ensure only that sibling frames do not overlap. Nested frames are not considered overlapping; an inner frame must be contained within its outer frame. For adjacent frames, compare the facing edges: the bottom edge of the upper frame with the top edge of the lower frame, and the right edge of the left frame with the left edge of the right frame.
 
-补充底框（优先异形）：有内容但还没有底框的补上。异形轮廓优先，按原图实际形状定位置和大小。补的时候同样只要不与已有平级框交叠。
+Supplementary base frames (prioritize irregular shapes): Add base frames for content that does not yet have one. Prioritize irregular contours, determining position and size based on actual shapes in the original figure. When adding them, also ensure they do not overlap with existing sibling frames.
 
-缩放底框 → 大小修复：对照原图把每个底框缩放到该有的大小，偏大偏小都修。缩放后平级仍不要交叠。
+Scale base frames -> size repair: Cross-reference the original figure to scale each base frame to its intended size, correcting both oversized and undersized frames. After scaling, sibling frames still must not overlap.
 
-全部底框做完后，再 refit 一次尺寸：看每个框的上、下、左、右，跟原图对应边的比例对不对。不对就按原图比例改坐标。
+After all base frames are completed, refit dimensions once more: check whether the top, bottom, left, and right coordinates of each frame match proportional edges in the original figure. If not, adjust coordinates according to original figure proportions.
 
-这几步做完，才允许开始传导。不要单独交中间 svg。
+Only after these steps are completed are you permitted to begin conduction drawing. Do not submit intermediate SVG separately.
 
-【传导】
-选择一个底框。
-开始该框的传导前，从原图盘点框内全部可见内容，不按SAM有无决定画不画。用desc简记对象及其关系。先逐个完成真实SVG/SP刻画并给对象稳定ID，不用空框占位；困难照片局部可按已有补crop方式实现。SAM素材留到传导与刻画完成后替换。
+[Conduction Drawing]
+Select a base frame.
+Before beginning conduction for this frame, inventory all visible content inside it from the original figure; do not decide whether to draw based on the presence of SAM assets. Briefly note objects and their relationships in <desc>. First complete genuine SVG/SP construction one by one and assign stable IDs to objects, without using empty placeholder boxes; challenging photographic areas can be handled using existing in-flight crop requests. Reserve SAM assets for replacement after conduction and SVG construction are completed.
 
-确立起点。先把起点刻画出来。
-开始单向传导。一次只朝一个有东西的方向走：朝上、向下、向左、向右，以及凡是有东西的方向。走完这一向，再换下一向。不要同时往四周铺。
-确定参照：参照就是起点。下一个体拿来跟起点看。
+Establish origin: Construct the origin in SVG first.
+Begin unidirectional conduction: Move in only one direction that contains content at a time: upward, downward, leftward, rightward, or in any direction where content exists. Complete that direction before moving to the next. Do not spread out in all directions simultaneously.
+Determine reference anchor: The reference anchor is the origin. Position the next entity relative to the origin.
 
-每走到下一个体，先判断下面两层，再写它的代码。写完这一个，跟上面一样，再走下一个。不要跳着把某一整块填满再去下一块。
+For each subsequent entity reached, evaluate the following two layers before writing its code. After finishing it, proceed to the next entity in the same manner. Do not skip around to fill an entire block before moving to the next.
 
-1. 下一个体：关于起点
-它相对起点是什么关系，按这个关系刻画。
-若是箭头：对号。只用库里的双头和头像素；没有，按普通单头。
-双头：终点 marker-end，起点再加一头 marker-start orient="auto-start-reverse"。
-头大小按库里像素写 marker：markerUnits="userSpaceOnUse"，markerWidth=像素长，markerHeight=像素宽。三角仍是 M0,0 L10,4 L0,8 Z。
-箭头和连线的拐点跟原图，不要一律画弯，也不要一律画折。原图两边都是直线、折点清楚的横折或竖折：用折线 L/H/V，禁止用 Q 或 C 把这个角画圆。原图折点本身是小圆角，才用一个 Q。原图是长弯，留 C，不要收成折。
-若是图片或 icon：从原图的上下文确认对象及其与起点、邻居的关系，先完成它的刻画和点位。同时从原图标框看板确认覆盖此对象的SAM素材，建立对应关系；即使有素材也不跳过刻画，最后沿用对应关系替换，不重新猜测。
+1. Subsequent Entity: Relative to Origin
+Identify its relationship relative to the origin and construct it according to this relationship.
+If it is an arrow: match its reference ID. Use the library only for double-head status and head pixel dimensions; if absent, treat as standard single-head.
+Double-headed: specify marker-end at the end of the path, and add marker-start with orient="auto-start-reverse" at the start of the path.
+Head size: define marker dimensions using library pixels: markerUnits="userSpaceOnUse", markerWidth=length in pixels, markerHeight=width in pixels. The triangle remains M0,0 L10,4 L0,8 Z.
+Arrow and connecting line corners must follow the original figure; do not render all corners as curves, nor all corners as sharp bends. When both adjoining segments in the original figure are straight with a clear horizontal or vertical orthogonal bend: use polylines (L/H/V); do not round the corner with Q or C. Use a single Q only when the corner itself in the original figure has a subtle rounded fillet. If the original figure features a sweeping curve, keep C; do not flatten it into sharp bends.
+If it is an image or icon: confirm the object and its relationships to the origin and neighbors from original figure context, and complete its initial construction and placement in SVG first. At the same time, locate the SAM asset covering this object from the original-figure overview board annotated with bounding boxes, establishing a mapping; do not skip initial construction even when a matching asset exists; execute replacement later using the established mapping, without guessing anew.
 
-2. 整个部分：关于 ___ 的等分
-这一片作为整体，先说它是关于什么在等分。常见的有：中心对称、一条横线。特殊情况特殊形容，不要硬套。
-每完成一个底框里的内容，refit 一次框内：文字出框要收回去，箭头等基础件的位置大小也对一下原图。
+2. Whole Section: Equipartition / Symmetry Basis
+For this section as a whole, state its basis of equipartition or symmetry (common examples: central symmetry, a horizontal line). Describe unique cases specifically; do not force generic templates.
+After completing the content inside each base frame, refit inside the frame once: pull overflowing text back inside the frame, and check positions and sizes of foundational components such as arrows against the original figure.
 
-【SAM对应与最后替换】
-传导到照片、图标或组合对象时，根据完整原图确认对象范围，从原图标框看板找到对应SAM素材，建立“原图对象—已刻画对象ID—SAM素材ID”关系，在desc记下语义依据。不能先看孤立裁片猜用途。看板上的标框和ID不是要复刻的内容。
-全图刻画完成后，才沿用已经建立的关系替换到既定点位。原图中同一组合的多个裁片保持原有内部相对位置、间距与比例，作为区块整体放置；不同对象分别处理，不仅凭距离或检测框重叠合并。
-先明确素材实际覆盖哪些内容：被完整覆盖的刻画和临时占位框删除；真实外框若素材不含它则保留，素材已完整包含它才删除重复刻画。未覆盖的文字、箭头、边框和细节必须保留。若现有分组混合了应删和应留内容，先在SVG中分开再替换，不要删除整个混合组。
-输出保留完整的原刻画代码，并在独立的后置替换image或g上写data-plus-replaces="要删除的对象ID，以空格分隔"，需要保留的相关对象写data-plus-keeps="保留ID，以空格分隔"。若删除列表包含data-plus-kind="frame"的真实边框，必须在data-plus-covered-frames="被素材完整覆盖的边框ID"中明确列出。替换节点与被删节点不能互相包含。代码绑定素材后才删除指定刻画；不要用空组冒充已画内容。
-例如<g id="draft-object">实际刻画</g>之后输出<g id="replacement" data-plus-replaces="draft-object" data-plus-keeps="adjacent-label" transform="translate(dx dy)"><image href="实际素材ID" x="原x" y="原y" width="原宽" height="原高"/></g>。所有对应ID和点位由你根据原图确定。
-没有匹配素材或对应关系不确定时，保留已刻画内容，不强行替换。完成后检查错配、重复、残留占位框和缺失。
-SAM素材表的source_crop=[x,y,width,height]是该裁片在原图上的真实区块坐标。引用素材时，image的x/y/width/height保持这一组原始值，宿主也会按SAM记录恢复这些值；新的放置用外层原生SVG的<g transform="translate(dx dy)">表达。dx/dy由你根据原图、底框和传导关系决定，原位复刻时为0。不再分别猜每张裁片的位置或重新排版。
-同一语义区块中原本一起排列的多张图片，共享同一个外层g和同一平移量，保留它们原有的相对位置、间距、大小和排列；已有完整区块裁片可直接整块使用，避免同时引用它的重复局部。分组依据原图语境，不按距离机械合并。不要逐张居中或逐张拉伸。普通单张也采用原坐标加外层平移。
-用标准SVG表达，例如<g id="区块ID" transform="translate(dx dy)"><image href="实际素材ID" x="原x" y="原y" width="原宽" height="原高"/></g>，所有值来自素材表或你的整体传导判断；不使用data-plus-sam-group占位声明。保持原尺寸优先，确实需要适配底框时才整体等比缩放，不能单独改变组内成员比例。
-最后替换仅选确认匹配的素材；不能因此省略初次刻画。漏检或困难局部以data-plus-crop="x,y,w,h"和data-plus-representation="raster|vector"声明，由本地代码从原图裁取。普通照片为raster，多几何组合或抽象困难局部为vector；不要用整图照片替代重建。
-以下列出素材ID、类型与SAM原图区块坐标，按表中顺序对应附图裁片。
+[SAM Asset Mapping & Post-Replacement]
+When you reach a photo, icon, or composite object during conduction drawing, confirm object boundaries against the full original figure. Locate the matching SAM asset from the original-figure overview board annotated with bounding boxes, establish the relationship "Original Figure Object - Constructed Element ID - SAM Asset ID", and record semantic rationales in <desc>. Do not guess an asset's purpose from an isolated crop first. Bounding boxes and IDs on the board are not content to reproduce.
+
+Only after full-figure SVG construction is completed should you apply established mappings to replace elements at established positions. Multiple crops belonging to the same combination in the original figure must preserve their internal relative positions, spacing, and proportions, placed as a unified block; handle distinct objects separately, not merging them merely based on distance or bounding box overlap.
+
+First clarify what the asset actually covers: delete the constructed SVG content and temporary placeholder boxes that are fully covered; retain true outer frames if the asset does not include them, deleting redundant frame constructions only when the asset fully encapsulates them. Uncovered text, arrows, borders, and details must be retained. If an existing group mixes elements to delete and elements to keep, separate them in SVG before replacement; do not delete the entire mixed group.
+
+Retain the complete initial SVG construction code in the output, and declare on an independent post-replacement image or g: data-plus-replaces="IDs_to_delete_space_separated", and for associated elements to keep: data-plus-keeps="IDs_to_keep_space_separated". If the deletion list includes true frames with data-plus-kind="frame", you must explicitly list them in data-plus-covered-frames="frame_IDs_fully_covered". Replacement nodes and deleted nodes must not contain each other. Specified initial constructions are deleted only after code binds the asset; do not use empty groups to fake drawn content.
+
+Example: after <g id="draft-object">actual drawn construction</g>, output <g id="replacement" data-plus-replaces="draft-object" data-plus-keeps="adjacent-label" transform="translate(dx dy)"><image href="ACTUAL_ASSET_ID" x="ORIGINAL_X" y="ORIGINAL_Y" width="ORIGINAL_W" height="ORIGINAL_H"/></g>. All corresponding IDs and anchor points are determined by you from the original figure.
+
+When there is no matching asset or the mapping is uncertain, retain the constructed content without forcing replacement. After completion, check for mismatches, duplicates, residual placeholder boxes, and omissions.
+
+source_crop=[x,y,width,height] in the SAM asset table represents the crop's true block coordinates on the original figure. When referencing an asset, keep image x/y/width/height at these exact original values; the host will also restore these values from SAM records. Express new placements using the outer native SVG <g transform="translate(dx dy)">. Determine dx/dy from the original figure, base frame, and conduction relations (0 for in-place reproduction). Do not guess each crop's position separately or rearrange the layout.
+
+Multiple images originally arranged together in the same semantic block share the same outer g and the same translation offset, preserving their relative positions, spacing, dimensions, and arrangement; existing full-block crops can be used directly as a whole, avoiding redundant references to overlapping sub-crops. Group by original figure context, not by mechanical distance. Do not center or stretch images individually. Single images also use original coordinates plus outer translation.
+
+Express using standard SVG, such as <g id="block_id" transform="translate(dx dy)"><image href="ACTUAL_ASSET_ID" x="orig_x" y="orig_y" width="orig_w" height="orig_h"/></g>. All values derive from the asset table or your overall conduction judgment; do not use placeholder declarations like data-plus-sam-group. Prioritize original dimensions; scale uniformly as a whole only when strictly required to fit a base frame, never altering proportions of individual group members.
+
+Final replacement applies only to confirmed matching assets; do not omit initial SVG construction even when a matching asset is available. For missed detections or challenging areas, declare data-plus-crop="x,y,w,h" and data-plus-representation="raster|vector" for the host to crop from the original figure. Use raster for standard photos, and vector for multi-geometry combinations or abstract challenging areas; do not use a full-image screenshot to substitute for reconstruction.
+
+Below are asset IDs, types, and SAM original block coordinates, matching attached crops in table order:
 {{IMAGE_LIBRARY}}
 
-用 <symbol> 再 <use> 复用时：每个 <use> 必须写 width 和 height，数值跟该 symbol 的 viewBox 宽高一致。不写宽高会被拉成整张画布，禁止省略。
+When reusing definitions with <symbol> and <use>: every <use> must specify width and height, matching the viewBox dimensions of that <symbol>. Omitting width/height causes the element to stretch across the entire canvas; omitting them is forbidden.
 
-【补漏】
-交之前逐个底框对照原图与已写SVG：检查前面的内容清单，每个原图中可见的对象必须有实际可见的实现。尤其检查只有框和标题、内部图形却空白的区域；标题已写不代表内容已完成，SAM没有裁片也不代表可以省略。
-没有SAM素材时，能刻画的内容用SVG/SP完成；难以准确刻画的局部使用已有data-plus-crop补裁方式，crop坐标由你从原图判断，不能用无关素材或随意的简单线条充数。小图、曲线、纹理、内部符号也必须按原图补齐，不留给后续修复才首次生成。
-检查这些内容没有被opacity=0、display:none、错误裁切、遮盖或样式覆盖隐藏；深底浅字的局部fill要避免被class的fill覆盖。实际补齐后再交完整SVG；desc清单本身不算完成。
+[Fill Omissions]
+Before submitting, cross-check the original figure against the SVG code written so far, one base frame at a time: check the preceding element inventory; every object visible in the original figure must have an actual visible implementation. In particular, inspect areas that have only a frame and title but blank interior graphics; writing a title does not mean content is complete, and absence of a SAM crop does not mean it can be omitted.
 
+When SAM assets are absent, construct representable content with SVG/SP; for challenging regions that are difficult to construct accurately, use the existing data-plus-crop mechanism, with crop coordinates determined by you from the original figure. Never substitute unrelated assets or arbitrary simple lines. Small graphics, curves, textures, and internal symbols must also be faithfully supplemented from the original figure; do not leave their initial creation to later repair passes.
 
-【Plus补充：保留原生SVG，不改写为Scene】
-SVG坐标遵守原生SVG语义：rect的x/y不会移动子对象；只有transform改变坐标系。尽量用统一viewBox，保留原图比例。所有底框/补框加data-plus-kind="frame"和稳定ID；语义对象/组也给稳定ID。表达关系时用图中文字/名称作主语和宾语，在title或desc保留依据。
-SP可以在SVG内用<g id="..." data-plus-sp='{"kind":"geometry","data":{...}}'/>声明；宿主用说明书中的真实构造器填入内容。适用于单个几何/魔方、箭头、文字和公式，复杂局部按照片分类走局部矢量化。数值由你根据原图确定，不从示例照抄。
-SAM仅线索，误检不必使用。最终经宿主替换后，图片与被替换刻画不能同时保留造成重复。最终仅交完整SVG。
+Check that these elements are not hidden by opacity=0, display:none, incorrect clipping, occlusions, or CSS style overrides; ensure fill on light text on dark backgrounds is not overridden by class fill rules. Submit the complete SVG only after actually filling all omissions; an element inventory in <desc> alone does not count as completed.
 
-【原图颜色与按需取色方法】
-准确还原原图的背景、框面、线条、文字和几何各面颜色，不使用统一近似配色替代；分别判断填色与描边，注意浅色底和深色文字、深色底和浅色文字，避免继承样式覆盖正确颜色；原图的渐变、透明度不能简单当作单一纯色。
-不提供前置颜色库或预先计算的色号。需要精确还原的纯色区域可在对应SVG元素声明 data-plus-color='{"fill":[x,y,w,h],"stroke":[x,y,w,h]}'，只写需要采样的属性；坐标由你从干净原图识别，指的是原图取色区域，不是SVG的新放置位置。返回SVG后，本地OpenCV取该区域出现最多的颜色，写入此元素对应属性及内联样式，并记录实际色号；无需你编写取色代码。
-取样要选择目标自身纯色内部，避开文字、边缘抗锯齿、阴影和邻居背景；细线或细字若无法确定纯色取样区，就直接按原图刻画并留待后续核查，不从大片背景取色覆盖它；渐变应按原图保留渐变结构，不对整个渐变区域取一个主色。
+[Plus Supplement: Preserve Native SVG, Do Not Convert to Scene]
+SVG coordinates follow native SVG semantics: rect x/y does not move child elements; only transform alters coordinate systems. Strive to use a unified viewBox preserving original figure proportions. Add data-plus-kind="frame" and stable IDs to all base frames and supplementary frames; assign stable IDs to semantic objects and groups as well. When expressing relationships, use text/names from the figure as subject and object, retaining rationales in <title> or <desc>.
+
+SP can be declared in SVG as <g id="..." data-plus-sp='{"kind":"geometry","data":{...}}'/>; the host uses the actual constructors specified in the manual to fill in the content. Applicable to individual geometric objects (such as cuboids or lattices), arrows, text, and formulas; complex regions should follow photographic classification for local vectorization. All numerical values must be determined by you from the original figure, not copied from the examples.
+
+SAM provides clues only; false positives need not be used. After host replacement, image assets and replaced draft constructions must not be retained at the same time to create duplicates. Submit only a complete SVG.
+
+[Original Colors & On-Demand Color Sampling Method]
+Accurately reproduce colors of background, frame surfaces, lines, text, and geometric faces from the original figure; do not substitute with uniform approximate palettes. Distinguish fill from stroke; note light-on-dark versus dark-on-light text, avoiding inherited styles overriding correct colors; gradients and opacity in the original figure cannot simply be treated as a single flat color.
+
+No pre-computed color palette or hex library is provided. For solid color regions requiring exact fidelity, declare on the corresponding SVG element: data-plus-color='{"fill":[x,y,w,h],"stroke":[x,y,w,h]}', including only attributes that require sampling. Coordinates [x,y,w,h] are identified by you from the clean original figure, referencing sampling ROIs on the original figure-not the new placement in SVG. Upon receiving the SVG, local OpenCV takes the dominant mode color within that ROI, writes it into the element's corresponding attributes and inline style, and records the measured hex code; no color-sampling code is required from you.
+
+Sampling ROIs must be chosen inside the target's solid interior, avoiding text, anti-aliased edges, shadows, and adjacent backgrounds. If a solid color sampling ROI cannot be determined for fine lines or fine text, construct them directly based on the original figure and leave them for subsequent verification; do not sample large surrounding backgrounds to cover them. Gradients should retain their gradient structure according to the original figure, rather than taking a single dominant color across the entire gradient region.

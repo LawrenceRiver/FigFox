@@ -3,40 +3,40 @@ from ..review_problem_first_v3.inspection_contract import inspection_regions
 
 
 CATEGORIES = ('F', 'E', 'B', 'S1', 'D', 'S2')
-PROMPT = '''这是第一次请求，交叠、对齐、字体公式、规则立方体、箭头、和原图完全不符一起找。programs 必须是空数组，不要写修复代码。
-前面几类不要记图标缺失。看见就记。F 和 E 的 decision 用 confirmed。
-F 交叠，贴住也算：
-1. 几何体和文字的排列互相压住，或同一箭头、箭头头画了两层。
-2. 文字、标题、几何该在框内，却贴边或伸出框。先写原因，可以多个：框、字、位置。
-3. 省略号、虚线续接留在旧位置，或压在框上。
-4. 内容画出整张图的边界。
-原图本身就叠在一起的，不记。
-E 对齐。原图里成对、对称、共轴、等高的结构要逐对检查。原图本来不对称的不要报，也不要把现图强行平均。现图自己左右看起来齐，不能代替原图的对称。
-1. 成对箭头：两端高度、箭身长度、离中轴的距离。同起点或同底边，不算另一端已经对齐。
-2. 用来示意的大图标、大几何：中心、边缘或轴线要对上。
-3. 同一组的成员：中轴、两端高度、长度、间距都要看。
-B 字体公式。字体不同没有关系，只要显示清晰、同一张图里大体统一。现有统一格式保留。文字本来显示正确就不要改。
-公式要能用本地 MathJax 的 base、ams、newcommand 编译。只记这几类，decision 用 confirmed：上下标错了；根号一类符号编译错了；公式编译不出来。内容相同、只是位置错，归 E 或 F。不那么确定就标 uncertain。
-S1 规则立方体。原图是正方体或长方体。身体可以分成几节，节线跟对应的边平行，格子是闭合的平行四边形。现图因为画法不再是正确的立方体，decision 用 confirmed：少了一个面、压成一块平面、邻面没有和主面共边；或者外壳还在，但分节线折成尖角、中间穿成三角、不跟边平行，节数或方向对不上原图，看起来是乱码。不要因为还有三个面、端点落在边上，就放过分节。不要把乱线当成纹理。几何已经正确、只是位置或交叠不对，归 E 或 F。颜色差异不记。主面顶边要跟原图一样斜，不要画成横平竖直的正面。顶面和侧面都要看得见。原图是多块立方体叠成一堆的，现图排成一条或一排扁块，也记，块数和叠法跟原图。分节折成尖角的那一块也要记，不要因为它整体还像一块方块就放过。每一个带分节的立方体都要单独看，包括最小的一块。节线不是闭合平行四边形就记。规则立方体单独再扫一遍已经给的 1/2 Crop。
-D 箭头。只看这几件：头的尖和身的端点要尖对尖；方向跟原图一致；头的大小按原图像素；起点和终点是否落在框上，按原图。缺了、多了、方向反了、尖没对上、头的大小不对、该接框却悬空或该留空却接上，就记。decision 用 confirmed。不要把箭头当成交叠。
-S2 和原图完全不符。这一类单独再扫一遍已经给的 1/2 Crop，对照里面的小贴块。颜色和原图完全不一致，或者这块东西完全没有，就记。decision 用 confirmed。这种要补上去。差一点点的颜色、位置不对，不归这类。
-只看一次：整图原图对当前渲染、当前 SVG、以及已经给的 1/2 Crop。规则立方体、和原图完全不符，这两类各自再单独扫一遍 1/2 Crop。不要列区域编号，不要为没问题的地方写反证。
-输出 compact_category_sweeps，顺序 F,E,B,S1,D,S2。没有问题的一类 candidates 为空数组。不要 other_sweep。'''
+PROMPT = '''This is the first request. Inspect all six categories together: F Overlap and Overflow, E Alignment and Symmetry, B Typesetting and Formulas, S1 Regular Cuboids and Lattices, D Arrow Geometry, and S2 Inconsistent Patches. programs must be an empty array []; do not write repair code.
+Do not record missing icons in the preceding categories. Record defects upon observation. Use confirmed for decision in F and E.
+F - Overlap and Overflow. Touching with zero clearance also counts:
+1. Arrangements of geometric objects and text pressing against each other, or the same arrow / arrowhead drawn in two layers.
+2. Text, titles, or geometric objects that should be inside a frame, but are flush against edges or extending outside the frame. State reasons first (can be multiple: frame, text, position).
+3. Ellipses or dashed continuation lines remaining in old positions, or pressing against frame edges.
+4. Content drawn outside the boundary of the overall figure.
+Do not record overlaps that are present in the original figure itself.
+E Alignment and Symmetry. Check paired, symmetrical, coaxial, and equal-height structures against the original figure, pair by pair. Do not report structures that are originally asymmetrical in the original figure, and do not force the current render into an artificially averaged arrangement. Appearing aligned between left and right in the current render itself cannot substitute for symmetry in the original figure.
+1. Paired arrows: height at both ends, shaft length, and distance to center axis. Sharing the same start or bottom edge does not mean the other end is aligned.
+2. Large schematic icons and large geometric objects: center, edges, or axes must align.
+3. Members of the same group: center axis, height at both ends, length, and spacing must all be examined.
+B Typesetting and Formulas. Font differences do not matter, as long as rendering is clear and generally uniform across the same figure. Retain existing uniform formats. Do not change text that already displays correctly.
+Formulas must compile using local MathJax base, ams, and newcommand. Record only these types, with decision as confirmed: incorrect subscripts or superscripts; miscompiled symbols such as square roots; formula fails to compile. If content is identical and only position is wrong, categorize under E or F. If not as certain, mark as uncertain.
+S1 Regular Cuboids and Lattices. The object shown in the original figure is a cube or cuboid. The body can be divided into segments, where division lines are parallel to corresponding edges, and grid cells are closed parallelograms. When the current render is no longer a correct cuboid due to drawing method, use confirmed for decision: missing a face, squashed into a flat plane, or an adjacent face does not share an edge with the main face; or the outer shell is present, but division lines are bent into sharp angles, run through the middle to form triangular shapes, are not parallel to edges, or segment count or direction does not match the original figure, looking visually garbled. Do not overlook division lines just because three faces are still present and endpoints fall on the edges. Do not treat malformed lines as texture. If geometry is already correct and only position or overlap is wrong, categorize under E or F. Do not record color differences. The top edge of the main face must have the same slant as in the original figure; do not turn it into a front-facing face with horizontal and vertical edges. Both top face and side face must be visible. If the original figure has multiple cuboids stacked in a pile, and the current render arranges them in a single row or line of flat blocks, record this as well; the block count and stacking arrangement must match the original figure. Also record any piece where division lines bend into sharp angles; do not overlook it just because it still resembles a block overall. Every cuboid with divisions must be inspected individually, including the smallest one. Record it if the division lines do not form closed parallelograms. Perform a separate pass over the provided 1/2 Crop pairs specifically for regular cuboids.
+D Arrow Geometry. Check only these items: the arrowhead tip and the shaft endpoint must coincide; direction must match the original figure; arrowhead size must match its pixel dimensions in the original figure; whether start and end land on frames follows the original figure. Record if missing, extra, reversed in direction, tip misaligned, head size incorrect, hanging in empty space when it should connect to a frame, or connected when it should leave space. Use confirmed for decision. Do not treat arrows as overlap.
+S2 Inconsistent Patches. Perform a separate pass over the provided 1/2 Crop pairs for this category, cross-referencing the small patches inside. Record if color is completely inconsistent with the original figure, or if this element is completely missing. Use confirmed for decision. These require patching. Minor color differences or incorrect positions do not belong to this category.
+Perform one general inspection pass by comparing the full original figure with the current render, the current SVG, and the provided 1/2 Crop pairs. For Regular Cuboids and Lattices and Inconsistent Patches, perform one additional separate pass over the 1/2 Crop pairs for each category. Do not list region numbers; do not write counter-evidence for areas without problems.
+Output compact_category_sweeps in order F,E,B,S1,D,S2. For a category without problems, candidates is an empty array []. Do not output other_sweep.'''
 
-REPAIR_PROMPT = '''这是第二次请求。为已经列出的 F、E、B、S1、D、S2 一起写 programs。issues 原样带回，不要新增。
-F 按原因改，可以多步。框就改容器的边，不要把内容缩进过小的框。字就改文字或符号。位置才平移。省略号和虚线跟着所属那一排走。
-relations 用 predicate，不要写成 kind。separate 写正的 min_gap，contain 写正的 padding。legal_overlap 只有原图本身叠在一起才用。改框写在 operations，用 bp_patch。
-每一条 relation 都要能对上当前 SVG 里已有的 id，否则程序不会运行。contain：内容写 subject_id，框写 object_id。也可以框写 container_ids、内容写 target_ids。separate：两个对象写 subject_id 和 object_id，或按这个顺序写进 target_ids。不要把框写进 neighbor_ids。
-E 的端点高度或箭身长度不对时，按原图改端点或长度，不要只把整条平移到中心。对称的两侧都要改。大图标按原图的轴对齐。
-B 只修编译不出来、上下标错误、根号一类符号编译错误。用 SP formula，tex 只能用 base、ams、newcommand 里能编译的命令。不要为了字体统一去改已经显示正确的文字。公式移动整体，不单挪一个字形。
-S1 用 sp_replace，kind 是 geometry。没有分节的，data.shape 是 cuboid。原图身体分成几节的，包括分节线折乱的，data.shape 是 lattice，divisions 按原图正面和侧面各有几格，还是同一个物体，不要保留原来的折线。origin、u、v 定主面，depth 或 depth_length 加 depth_angle 定深度。各面颜色按原图。measurement_viewport 包住构造，target_tp 用现图该物体的范围，mode 用 contain。不要手绘 polygon，不要贴照片。u、v 跟原图主面一样斜，顶边斜就不要写成水平。depth 要让侧面看得见。多块叠成一堆的，按原图块数分成多块 cuboid，不要排成一条扁的。
-D 用 sp_replace，kind 是 arrow。头的尖和身的端点重合。head_length、head_width 按原图像素。方向按原图。起点终点该接框就接到框上，该留空就留空。箭头程序 depends_on 为空。
-S2 和原图完全不符。小贴块颜色和原图完全不一致，或这块完全没有的，用 sp_photo 从对应原图裁片切进来补上。
-用 sp_photo 时必须写齐，缺一项程序不会运行。args.source_crop 是原图像素 [x,y,w,h]，要包住 full_object_xywh，并且落在原图内。args.crop_review 是 {object_complete:true, clipped:false, full_object_xywh:[x,y,w,h], edges_reviewed:{left:true,top:true,right:true,bottom:true}, evidence:原图这一块四边都在裁片内}。键名是 edges_reviewed，不要写成 sides。和 method 同级写 source_location：{basis:original_semantic, description:原图这一块}。填不齐就不要用 sp_photo。
-alignment_checks 每项是 {id,target_ids,reference_ids,mode:center_x|center_y|left|right|top|bottom,tolerance:0.5,reference_evidence}。
-convergence 是 {max_iterations:6, alignment_checks, repairs:[{check_id, method:tp_align|tp_transform|tp_fit, target_ids, args}]}。check_id 对上 relation 或 alignment_check 的 id。
-互不依赖的程序 depends_on 为空。只含 D 或只含 S2 的程序 depends_on 必须是空数组，所以不要去改前面程序已经改过的同一个对象。其余程序先后改同一个对象时，后一个 depends_on 前一个的程序 id。
-预检查不通过的程序不会运行。不要写修复理由长文。'''
+REPAIR_PROMPT = '''This is the second request. Write programs collectively for the listed F, E, B, S1, D, and S2 categories. Echo back issues as-is; do not add new issues.
+For F, repair according to the identified reason; multi-step operations are permitted. For frames, modify container boundaries; do not shrink content into an overly small frame. For text, modify text or symbols. Move the element only when the identified issue is positional. Ellipses and dashed lines must follow the row they belong to.
+In relations, use predicate; do not write kind. For separate, specify a positive min_gap; for contain, specify a positive padding. Use legal_overlap only when the overlap is present in the original figure itself. Frame modifications belong in operations using bp_patch.
+Every relation must match existing IDs in the current SVG; otherwise, the program will not execute. contain: specify content as subject_id and frame as object_id, or specify frame as container_ids and content as target_ids. separate: specify the two objects as subject_id and object_id, or write them in that order into target_ids. Do not put frames into neighbor_ids.
+For E, when endpoint heights or arrow shaft lengths are incorrect, modify endpoints or lengths according to the original figure; do not merely translate the entire arrow to the center. Both symmetric sides must be modified. Align large icons to axes according to the original figure.
+For B, repair only compilation failures, subscript/superscript errors, and compilation errors in symbols such as radicals. Use SP formula; tex commands are strictly limited to those compilable under base, ams, and newcommand. Do not modify text that already renders correctly merely for font uniformity. Move formulas as a whole unit, not individual glyphs.
+For S1, use sp_replace with kind as geometry. If unsegmented, data.shape is cuboid. If the body in the original figure is divided into segments (including cases with malformed division lines), data.shape is lattice; set divisions to the cell counts on the front and side faces according to the original figure-it remains a single object; do not retain the original polylines. origin, u, and v define the main face; depth or depth_length plus depth_angle defines depth. Colors of each face follow the original figure. measurement_viewport encloses the construct; target_tp uses the extent of that object in the current render; mode is contain. Do not hand-draw polygons; do not paste photos. u and v must have the same slant as the main face in the original figure; if the top edge is slanted, do not make it horizontal. depth must ensure the side face is visible. If multiple blocks are stacked in a pile in the original figure, divide them into multiple cuboids matching the original block count; do not arrange them into a single flat strip.
+For D, use sp_replace with kind as arrow. The arrowhead tip and the shaft endpoint must coincide. head_length and head_width follow pixel dimensions in the original figure. Direction follows the original figure. Connect start and end points to frames if they connect in the original figure, or leave clearance if they leave clearance. depends_on must be empty [] for arrow programs.
+For S2, Inconsistent Patches. Where small patch color is completely inconsistent with the original figure, or this element is completely missing, use sp_photo to crop the corresponding region from the original figure and patch it in.
+When using sp_photo, all fields are strictly required; missing any item causes execution to be skipped. args.source_crop specifies original figure pixels [x,y,w,h], which must enclose full_object_xywh and fall entirely within the original figure. args.crop_review is {object_complete:true, clipped:false, full_object_xywh:[x,y,w,h], edges_reviewed:{left:true,top:true,right:true,bottom:true}, evidence:all four edges of this element in the original figure fall inside the crop}. The key name is edges_reviewed; do not write sides. At the same level as method, provide source_location: {basis:original_semantic, description:this element in the original figure}. If unable to provide all fields completely, do not use sp_photo.
+Each item in alignment_checks is {id,target_ids,reference_ids,mode:center_x|center_y|left|right|top|bottom,tolerance:0.5,reference_evidence}.
+convergence is {max_iterations:6, alignment_checks, repairs:[{check_id, method:tp_align|tp_transform|tp_fit, target_ids, args}]}. check_id must match the id of a relation or an alignment_check.
+Programs that are mutually independent must have depends_on as []. Programs containing only D or only S2 must have depends_on as an empty array [], so do not modify an object already modified by an earlier program. When other programs modify the same object sequentially, the subsequent program must list the id of the preceding program in depends_on.
+Programs failing pre-checks will not execute. Do not write lengthy repair rationales.'''
 
 
 def _object(properties, required=None):

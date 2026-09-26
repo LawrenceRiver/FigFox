@@ -10,10 +10,10 @@ from ...state import write_json
 from ..review_luna_v1.transport import body_for, credential, message_from
 from ..single_call.transport import _open_http
 
-SINGLE_REQUEST_NOTICE = '''本次是最终独立 Sol 单请求评估，只允许这一次模型请求。
-这条执行约束覆盖共用方法说明中关于第二次模型复核的安排：不会向你返回工具执行结果，也没有下一次模型请求。
-请在此次完整完成规定的逐类检查，提交所有确认问题及依赖有序、可本地执行的完整修复程序；需要执行后条件判断的逻辑写进程序和已有收敛检查，不要把工作留待后续模型回复。
-宿主随后只在本地执行并由人工核验。尚未执行的程序不得宣称成功，无法完成的项目明确列为未解决。其余证据、原图/现图区分和 TP/SP/BP 方法约束不变。'''
+SINGLE_REQUEST_NOTICE = '''This is the final independent Sol single-request evaluation; only this one model request is permitted.
+This execution constraint overrides the arrangement in the shared method instructions about a second model review: tool execution results will not be returned to you, and there is no further model request.
+Complete the required per-category checks fully within this request, and submit every confirmed issue together with complete, dependency-ordered repair programs that can execute locally; put any logic that needs post-execution conditional judgment into the programs and the existing convergence checks, and do not leave work for a later model reply.
+The host then only executes locally, with human verification afterwards. Programs that have not been executed must not claim success, and items that cannot be completed must be listed explicitly as unresolved. Everything else - evidence, the original versus current-render distinction, and the TP/SP/BP method constraints - stays unchanged.'''
 
 
 def final_sender(ledger_dir, *, send_http=None):

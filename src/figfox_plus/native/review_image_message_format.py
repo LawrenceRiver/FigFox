@@ -167,11 +167,11 @@ def format_initial_image_messages(messages, validated_inputs, *,
             message_index = len(output)
             for member, original_blocks in members:
                 if member['kind'] == 'sam_original_candidate':
-                    title = 'SAM ORIGINAL CANDIDATE — 原图候选，非答案；可能漏检或误检'
+                    title = 'SAM ORIGINAL CANDIDATE - Original-figure candidate, not an answer; SAM may have false positives or missed detections'
                 elif member['role'] == 'original':
-                    title = 'REFERENCE ORIGINAL — 参考原图'
+                    title = 'REFERENCE ORIGINAL - Original figure'
                 else:
-                    title = 'CURRENT SVG RENDER — 当前 SVG 渲染图'
+                    title = 'CURRENT SVG RENDER - Current SVG render'
                 heading = f"{title}\nimage_id: {member['image_id']}\nasset_id: {member['asset_id']}"
                 if member['pair_id'] is not None:
                     heading += f"\nexisting_crop_pair_id: {member['pair_id']}"

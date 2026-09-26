@@ -48,10 +48,10 @@ def first(original,run,send=call_gpt55,sam=None):
     write_json(run/'arrow-head-evidence.json',[{k:a.get(k) for k in ('id','source_crop','head_pixels','detected_heads')} for a in arrows])
     def public(items):return json.dumps([{k:a[k] for k in ('id','role','source_crop','head_pixels','detected_heads') if k in a} for a in items],ensure_ascii=False)
     prompt=(PLUS_ROOT/'prompts/first_native.md').read_text().replace('{{CANVAS}}',f'{W} x {H}').replace('{{ARROW_LIBRARY}}',public(arrows)).replace('{{IMAGE_LIBRARY}}',public(pictures))
-    prompt+='\n'+manual()+'\n附图顺序：完整原图，然后SAM图片，再SAM箭头，各组按对应素材表顺序排列。SAM可能误检漏检。\n'
+    prompt+='\n'+manual()+'\nImage attachment sequence: full original figure, followed by SAM images, then SAM arrows; each group is arranged in the order of the corresponding asset table. SAM may produce false positives or missed detections.\n'
     from .sam_board import build_boards
     boards=build_boards(original,pictures,run/'first-sam-boards')
-    prompt+='\n最后附图为原图SAM图片标框看板，用于传导中建立对应、末尾执行替换。看板编号到素材ID映射：'+json.dumps({a['id']:a['source_id'] for a in boards['pictures']},ensure_ascii=False)+'\n引用href使用映射后的实际素材ID；看板不包含人工分组或语义答案。'
+    prompt+='\nThe final attached image is the original-figure overview annotated with SAM image bounding boxes, used to establish correspondence during conduction drawing and execute replacement at the end. Annotation label to asset ID mapping: '+json.dumps({a['id']:a['source_id'] for a in boards['pictures']},ensure_ascii=False)+'\nReference hrefs must use the mapped real asset IDs; the annotated overview contains no human-defined grouping or semantic answers.'
     response=send(prompt,[Path(original)]+[Path(a['path']) for a in pictures+arrows]+boards['images'],run/'gpt55','A-derived native SVG first pass')
     root=parse(response)
     (run/'before-sam-replacement.svg').write_text(serialize(root))

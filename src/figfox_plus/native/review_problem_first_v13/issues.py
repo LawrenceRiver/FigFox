@@ -18,7 +18,7 @@ def validate_issues(issues,programs,images):
             ids=row.get(field)
             if not isinstance(ids,list) or any(not isinstance(i,str) or i not in known[im] for i in ids):raise ValueError('unknown current SVG object')
         if row['decision']=='confirmed' and ident not in attempted and not str(row.get('unresolved_reason','')).strip():
-            row['unresolved_reason']='宿主记录：模型确认了该问题，但未提交对应程序或未解决原因；该项仍未解决。'
+            row['unresolved_reason'] = 'Host record: The model confirmed this issue but submitted neither a corresponding program nor an unresolved_reason; this item remains unresolved.'
             row['host_missing_program']=True
         seen[ident]=row
     for row in issues:

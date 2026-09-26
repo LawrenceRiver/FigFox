@@ -65,7 +65,7 @@ def call_deepseek(prompt,images,run_dir,purpose):
         copy_path=run/'input-images'/f'{len(manifest):03d}.jpg';copy_path.parent.mkdir(exist_ok=True)
         with Image.open(path) as im:im.convert('RGB').save(copy_path,quality=95,subsampling=0)
         data=copy_path.read_bytes();manifest.append(dict(path=str(copy_path.resolve()),source_path=str(path.resolve()),sha256=hashlib.sha256(data).hexdigest(),encoding='jpeg95',dimensions_preserved=True))
-        content.append({'type':'text','text':f'Image {len(manifest)} — {path.stem}. Match this index to the supplied original/current image order.'})
+        content.append({'type':'text','text':f'Image {len(manifest)} - {path.stem}. Match this index to the supplied original/current image order.'})
         content.append({'type':'image_url','image_url':{'url':'data:image/jpeg;base64,'+base64.b64encode(data).decode(),'detail':'original'}})
     body={'model':model,'messages':[{'role':'user','content':content}],'max_tokens':24000 if purpose.startswith('native') else 12000,'thinking':{'type':'disabled'}}
     if purpose.startswith('native'):body['response_format']={'type':'json_object'}

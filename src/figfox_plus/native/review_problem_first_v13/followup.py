@@ -9,14 +9,14 @@ from ...state import write_json
 PRIORITY = ('F', 'E', 'S1', 'S2')
 LANDED = ('changed_unverified', 'executed_no_change')
 
-PROMPT = '''这是回执之后的一次请求，只此一次。只处理清单里还没落地的问题。不要新增问题，不要重写已经落地的问题。
-已经给的 1/2 Crop 全部可以看。每一对的第一张是原图，第二张是当前渲染。每个问题都要选定包含它的那一个 pair_id，对着这一对来改，再按类别写程序。
-整张最新渲染和当前 SVG 是上一轮执行之后的结果。程序要改这份当前 SVG。
-F 交叠。按原因改。relations 用 predicate，不要写成 kind。separate 写正的 min_gap，contain 写正的 padding。contain：内容写 subject_id，框写 object_id。也可以框写 container_ids、内容写 target_ids。separate：两个对象写 subject_id 和 object_id。不要把框写进 neighbor_ids。改框写在 operations，用 bp_patch。要写 convergence，max_iterations 用 6。
-E 对齐。端点高度或箭身长度不对时，按原图改端点或长度，不要只把整条平移到中心。对称的两侧都要改。要写 convergence，max_iterations 用 6。
-S1 规则立方体。用 sp_replace，kind 是 geometry。没有分节的，data.shape 是 cuboid。有分节的，data.shape 是 lattice。不要手绘 polygon，不要贴照片。主面要斜，侧面要看得见。
-S2 和原图完全不符。用 sp_photo 从对应原图裁片切进来补上。args.source_crop 是原图像素 [x,y,w,h]，要包住 full_object_xywh，并且落在原图内。args.crop_review 是 {object_complete:true, clipped:false, full_object_xywh:[x,y,w,h], edges_reviewed:{left:true,top:true,right:true,bottom:true}, evidence:原图这一块四边都在裁片内}。键名是 edges_reviewed，不要写成 sides。和 method 同级写 source_location：{basis:original_semantic, description:原图这一块}。只含 S2 的程序 depends_on 必须是空数组。
-programs每项{id,issue_ids,image_id,base_revision,phase:preconstructor|reconstructor,route:module_program,target_ids,depends_on:[],rcd_predescription,args,relations?,convergence?}。模块程序 args={operations:[{method,target_ids,args}]}。base_revision 用消息里的当前 revision。issue_ids 只能是清单里的 id。issues 原样带回清单，不要新增。字段不齐的程序不会运行。不要写修复理由长文。'''
+PROMPT = '''This is the one-time receipt-driven followup request. Address only the unlanded issues in the list. Do not add new issues; do not rewrite issues that have already landed.
+All provided 1/2 Crop pairs are available for inspection. The first image in each pair is the original-figure crop; the second is the current-render crop. For each issue, select the pair_id of the 1/2 Crop pair that contains it, use that pair as the repair reference, and then write the program according to category.
+The full latest render and the current SVG reflect results after the previous execution round. Programs must modify this current SVG.
+F Overlap and Overflow. Repair according to the identified reason. In relations, use predicate; do not write kind. For separate, specify a positive min_gap; for contain, specify a positive padding. contain: specify content as subject_id and frame as object_id, or specify frame as container_ids and content as target_ids. separate: specify the two objects as subject_id and object_id. Do not put frames into neighbor_ids. Frame modifications belong in operations using bp_patch. convergence is required, with max_iterations as 6.
+E Alignment and Symmetry. When endpoint heights or arrow shaft lengths are incorrect, modify endpoints or lengths according to the original figure; do not merely move the entire arrow to the center. Both symmetric sides must be modified. convergence is required, with max_iterations as 6.
+S1 Regular Cuboids and Lattices. Use sp_replace with kind as geometry. If unsegmented, data.shape is cuboid. If segmented, data.shape is lattice. Do not hand-draw polygons; do not paste photos. The main face must be slanted, and the side face must be visible.
+S2 Inconsistent Patches. Use sp_photo to crop the corresponding region from the original figure and patch it in. args.source_crop specifies original figure pixels [x,y,w,h], which must enclose full_object_xywh and fall entirely within the original figure. args.crop_review is {object_complete:true, clipped:false, full_object_xywh:[x,y,w,h], edges_reviewed:{left:true,top:true,right:true,bottom:true}, evidence:all four edges of this element in the original figure fall inside the crop}. The key name is edges_reviewed; do not write sides. At the same level as method, provide source_location: {basis:original_semantic, description:this element in the original figure}. Programs containing only S2 must have depends_on as an empty array [].
+Each item in programs is {id,issue_ids,image_id,base_revision,phase:preconstructor|reconstructor,route:module_program,target_ids,depends_on:[],rcd_predescription,args,relations?,convergence?}. For module programs, args={operations:[{method,target_ids,args}]}. base_revision uses the current revision in the message. issue_ids can only contain IDs from the list. Return the listed issues unchanged; do not add new issues. Programs with incomplete fields will not execute. Do not write lengthy repair rationales.'''
 
 
 def _landed(issue, receipts):
@@ -91,14 +91,14 @@ def run_followup(task_dir, out_dir, *, sender=None):
         'method_pack': methods,
         'instruction': PROMPT,
     }, ensure_ascii=False)}]
-    content.append({'type': 'text', 'text': '整张原图'})
+    content.append({'type': 'text', 'text': 'Full original figure'})
     content.extend(_image(catalog['original_png']))
     latest = Path(current['png']).read_bytes()
-    content.append({'type': 'text', 'text': '整张最新渲染'})
+    content.append({'type': 'text', 'text': 'Full latest render'})
     content.extend(_image({'path': current['png'], 'asset_id': image_id + '/latest-render',
                            'sha256': hashlib.sha256(latest).hexdigest()}))
     for pair in catalog['crop_pairs']:
-        content.append({'type': 'text', 'text': '1/2 Crop ' + pair['pair_id'] + '。第一张是原图，第二张是当前渲染。'})
+        content.append({'type': 'text', 'text': '1/2 Crop ' + pair['pair_id'] + '. The first image is the original-figure crop; the second is the current-render crop.'})
         content.extend(_image(pair['original_asset']))
         content.extend(_image(pair['current_asset']))
     messages = [{'role': 'system', 'content': PROMPT}, {'role': 'user', 'content': content}]
