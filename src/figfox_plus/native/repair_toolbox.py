@@ -307,8 +307,9 @@ def _add(root, args, permitted, anchors):
     ids = [n.get('id') for n in new_nodes]
     if any(not i for i in ids) or len(ids) != len(set(ids)) or set(ids) & set(by):
         raise ValueError('BP addition requires unique explicit IDs')
-    if any(_refs(n) - set(ids) for n in new_nodes):
-        raise ValueError('BP fragment has external references')
+    references = set().union(*(_refs(n) for n in new_nodes))
+    if references - (set(ids) | set(by)):
+        raise ValueError('BP fragment has unresolved local references')
     if parent is root:
         local = [1,0,0,1,0,0]
     else:
@@ -323,7 +324,8 @@ def _add(root, args, permitted, anchors):
     parent.append(wrapper)
     validate(root)
     return {'parent_id':parent_id, 'resolved_parent_id':parent.get('id'),
-            'added_ids': ids, 'world_to_parent_matrix':local}
+            'added_ids': ids, 'world_to_parent_matrix':local,
+            'read_only_existing_references': sorted(references-set(ids))}
 
 
 def _photo(root, ids, args, original, folder, scale):
@@ -513,7 +515,7 @@ def execute_batch(root, issues, original, folder, scale=4):
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     baseline_revision = _revision(root)
-    (folder/'before.svg').write_text(serialize(root))
+    (folder/'before.svg').write_text(serialize(root), encoding='utf-8')
     write_json(folder/'operation_inputs.json', issues)
     # Layout boxes index the neighborhood. Isolated alpha stays on convergence and $measure.
     cache = measure_tight(root, scale=scale, layout=True)['objects'] if issues else {}
@@ -524,7 +526,7 @@ def execute_batch(root, issues, original, folder, scale=4):
         trial = deepcopy(root)
         issue_dir = folder/f'issue-{index+1:03d}'
         issue_dir.mkdir(parents=True, exist_ok=True)
-        (issue_dir/'before.svg').write_text(serialize(old_root))
+        (issue_dir/'before.svg').write_text(serialize(old_root), encoding='utf-8')
         write_json(issue_dir/'input.json', issue)
         item = {'id':issue.get('id') if isinstance(issue,dict) else None,
                 'status':'error','applied_operations':[],'errors':[],
@@ -564,10 +566,10 @@ def execute_batch(root, issues, original, folder, scale=4):
             item['checks'] = {'quality_verdict':None}
         item['resulting_revision'] = _revision(root)
         item['elapsed_seconds'] = time.perf_counter()-began
-        (issue_dir/'after.svg').write_text(serialize(root))
+        (issue_dir/'after.svg').write_text(serialize(root), encoding='utf-8')
         write_json(issue_dir/'report.json',item)
         reports.append(item)
-    (folder/'after.svg').write_text(serialize(root))
+    (folder/'after.svg').write_text(serialize(root), encoding='utf-8')
     report = {'baseline_revision':baseline_revision,'resulting_revision':_revision(root),
               'issues':reports,'elapsed_seconds':time.perf_counter()-started,
               'measurement_policy':'layout boxes for the neighborhood; isolated alpha stays on convergence and $measure',

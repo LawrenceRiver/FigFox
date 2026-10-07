@@ -1,9 +1,9 @@
 // Offline current SVG facts: no original coordinates and no defect decisions.
 const fs = require('fs');
-const {chromium} = require(process.env.PLUS_PLAYWRIGHT_MODULE);
+const browserRuntime = require('./browser.cjs');
 (async () => {
   const input = JSON.parse(fs.readFileSync(0, 'utf8'));
-  const browser = await chromium.launch({executablePath: process.env.PLUS_CHROMIUM, headless: true});
+  const browser = await browserRuntime.launch();
   try {
     const context = await browser.newContext({javaScriptEnabled: false, serviceWorkers: 'block', viewport: {width: 1200, height: 1000}});
     await context.route('**/*', route => route.abort());

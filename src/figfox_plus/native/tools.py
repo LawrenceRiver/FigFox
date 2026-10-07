@@ -1,4 +1,5 @@
 """Generic TP/SP operations. Numerical parameters belong to model responses."""
+from figfox_plus.image_io import imread
 from copy import deepcopy
 import json
 import math
@@ -99,7 +100,7 @@ def _execute_ops(root,ops,issues,original,folder,relations=()):
             move(result,ids,m,b)
         elif action=='relink':
             import base64
-            catalog=json.loads((Path(folder)/'asset-catalog.json').read_text())
+            catalog=json.loads((Path(folder)/'asset-catalog.json').read_text(encoding='utf-8'))
             asset_id=a['asset_id']
             if asset_id not in catalog:raise ValueError('unknown board asset ID')
             if any(tag(by[i])!='image' for i in ids):raise ValueError('relink requires image targets')
@@ -176,7 +177,7 @@ def _execute_ops(root,ops,issues,original,folder,relations=()):
             import cv2
             import numpy as np
             # Model selects semantic face/line ROI; code returns dominant color.
-            x,y,w,h=[number(v) for v in a['source_crop']];im=cv2.imread(str(original),cv2.IMREAD_COLOR)
+            x,y,w,h=[number(v) for v in a['source_crop']];im=imread(str(original),cv2.IMREAD_COLOR)
             x0,y0=max(0,math.floor(x)),max(0,math.floor(y));x1,y1=min(im.shape[1],math.ceil(x+w)),min(im.shape[0],math.ceil(y+h))
             if x1<=x0 or y1<=y0:raise ValueError('empty color sample')
             roi=im[y0:y1,x0:x1].reshape(-1,3);colors,counts=np.unique(roi,axis=0,return_counts=True);b,g,r=map(int,colors[counts.argmax()]);color=f'#{r:02x}{g:02x}{b:02x}'

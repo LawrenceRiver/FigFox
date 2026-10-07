@@ -1,6 +1,7 @@
 import base64
 from copy import deepcopy
 import hashlib
+from html.entities import html5
 import json
 import os
 from pathlib import Path
@@ -14,11 +15,60 @@ ET.register_namespace('',SVG)
 HREF='{http://www.w3.org/1999/xlink}href'
 DRAWABLE={'g','rect','circle','ellipse','polygon','polyline','path','line','text','image','use','svg'}
 
-def parse(text):
-    match=re.search(r'<svg\b[\s\S]*?</svg>',text)
-    if not match:raise ValueError('missing complete SVG')
-    root=ET.fromstring(match.group())
+def extract_svg(text):
+    # Skip comment/CDATA contents and match nested SVG viewports correctly.
+    tokens=re.finditer(r"""<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>|</?svg\b(?:[^>"']|"[^"]*"|'[^']*')*>""",text)
+    start=None;depth=0
+    for match in tokens:
+        token=match.group()
+        if token.startswith(('<!--','<![CDATA[','<?')):continue
+        closing=token.startswith('</')
+        if start is None:
+            if closing:continue
+            start=match.start()
+        depth+=-1 if closing else (0 if token.rstrip().endswith('/>') else 1)
+        if depth==0:return text[start:match.end()]
+    raise ValueError('missing complete SVG')
+
+
+def parse(text, *, repairs=None):
+    source=extract_svg(text)
+    normalization=[]
+    # These characters cannot appear literally in XML 1.0. Do not recover a
+    # malformed tree, invent missing closing tags, or remove numeric entities.
+    source,count=re.subn('[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]','',source)
+    if count:normalization.append({'kind':'remove_invalid_xml_characters','count':count})
+    opening=re.match(r"""<svg\b(?:[^>"']|"[^"]*"|'[^']*')*>""",source).group()
+    if re.search(r'\bxlink:',source) and not re.search(r'\bxmlns:xlink\s*=',opening):
+        end=len(opening)-(2 if opening.endswith('/>') else 1)
+        source=source[:end]+' xmlns:xlink="http://www.w3.org/1999/xlink"'+source[end:]
+        normalization.append({'kind':'declare_xlink_namespace','count':1})
+    try:
+        root=ET.fromstring(source)
+    except ET.ParseError:
+        # Preserve entities, comments, CDATA and processing instructions. Only
+        # escape bare ampersands; malformed structure must still fail parsing.
+        parts=re.split(r'(<!--[\s\S]*?-->|<!\[CDATA\[[\s\S]*?\]\]>|<\?[\s\S]*?\?>)',source)
+        count=0
+        entity_count=0
+        def xml_entity(match):
+            nonlocal entity_count
+            name=match.group(1)
+            if name in ('amp','lt','gt','quot','apos') or name+';' not in html5:
+                return match.group()
+            entity_count+=1
+            return ''.join(f'&#{ord(char)};' for char in html5[name+';'])
+        for index in range(0,len(parts),2):
+            parts[index]=re.sub(r'&([A-Za-z][A-Za-z0-9]+);',xml_entity,parts[index])
+            parts[index],changed=re.subn(r'&(?![A-Za-z_:][\w.:-]*;|#\d+;|#x[0-9a-fA-F]+;)', '&amp;',parts[index])
+            count+=changed
+        if not count and not entity_count:raise
+        root=ET.fromstring(''.join(parts))
+        if repairs is not None:
+            if count:repairs.append({'kind':'escape_bare_ampersand','count':count})
+            if entity_count:repairs.append({'kind':'html_named_entity_to_numeric','count':entity_count})
     validate(root)
+    if repairs is not None:repairs.extend(normalization)
     # Stable generic identity only: no change to geometry/position/style.
     existing={n.get('id') for n in root.iter() if n.get('id')};counter=0
     for n in root.iter():
@@ -45,9 +95,7 @@ def validate(root):
 
 def measure(root,png=None):
     validate(root);env=os.environ.copy()
-    env.setdefault('PLUS_PLAYWRIGHT_MODULE',str(Path.home()/'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'))
-    env.setdefault('PLUS_CHROMIUM',str(Path.home()/'Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell'))
-    p=subprocess.run([shutil.which('node') or str(Path.home()/'.node/bin/node'),str(PLUS_ROOT/'runtime/native.cjs')],input=json.dumps({'svg':serialize(root),'png':str(png) if png else None}),text=True,capture_output=True,env=env,timeout=60)
+    p=subprocess.run([shutil.which('node') or 'node',str(PLUS_ROOT/'runtime/native.cjs')],input=json.dumps({'svg':serialize(root),'png':str(png) if png else None}),text=True,capture_output=True,env=env,timeout=60, encoding='utf-8')
     if p.returncode:raise ValueError(p.stderr[:2000])
     return json.loads(p.stdout)
 
@@ -65,7 +113,7 @@ def frame_ids(root):
             (tag(n) in ('rect','polygon','circle','ellipse') and n.get('id') and not n.get('id').startswith('plus_node_'))]
 
 def extract_response(path):
-    d=json.loads(Path(path).read_text())
+    d=json.loads(Path(path).read_text(encoding='utf-8'))
     if d.get('status')!='completed' or not d.get('model','').startswith('gpt-5.5'):raise ValueError('not completed GPT-5.5 response')
     return ''.join(c.get('text','') for o in d.get('output',[]) if o.get('type')=='message' for c in o.get('content',[]) if c.get('type')=='output_text')
 

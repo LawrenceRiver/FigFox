@@ -15,6 +15,9 @@ def main(argv=None):
     chain.add_argument('--out',required=True)
     chain.add_argument('--id',required=True,help='short image id, for example unet')
     chain.add_argument('--rerun-authorization',required=True,help='one-time string allowing GPT-5.5 to run again on an original it has already seen')
+    chain.add_argument('--resume-first',help='reuse a completed GPT response from a native run that failed before baseline rendering; no new GPT request')
+    chain.add_argument('--resume-baseline',help='reuse a saved, hash-verified baseline and start a new review; no new GPT request')
+    chain.add_argument('--no-monitor',action='store_true',help='disable the separate local notification monitor')
     resume=commands.add_parser('resume');resume.add_argument('--run',required=True);resume.add_argument('--rounds',type=int,default=1,choices=(1,))
     prep=commands.add_parser('repair-prepare',help='prepare all images and 12 inputs locally; no API request')
     prep.add_argument('--sources',required=True);prep.add_argument('--run',required=True)
@@ -66,7 +69,9 @@ def main(argv=None):
         print(run_image(args.image,args.rounds));return 0
     if args.command=='chain':
         from .native.chain import run_chain
-        run_chain(args.image,args.out,image_id=args.id,rerun_authorization=args.rerun_authorization)
+        import os
+        run_chain(args.image,args.out,image_id=args.id,rerun_authorization=args.rerun_authorization,resume_first=args.resume_first,resume_baseline=args.resume_baseline,
+                  monitor=not args.no_monitor and os.environ.get('FIGFOX_START_MONITOR','1')!='0')
         return 0
     if args.command in ('resume','report'):
         import json

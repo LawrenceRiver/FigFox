@@ -28,14 +28,34 @@ def apply_replacements(root):
         plans.append((node,targets))
     for oid in claimed:
         target=by_id[oid]
-        if any(n.get('id') in protected for n in target.iter()):raise ValueError('replacement would delete protected object')
+        if target.get('id') in protected:raise ValueError('replacement target is also explicitly kept')
+        # A draft group can contain explicitly kept overlays. Preserve their
+        # ancestor chain (and inherited transforms/styles), pruning only siblings.
+        for kept in (n for n in target.iter() if n.get('id') in protected):
+            ancestor=parents.get(kept)
+            while ancestor is not None:
+                if ancestor.tag.rsplit('}',1)[-1] not in ('g','svg'):
+                    raise ValueError('cannot preserve kept descendant inside painted container')
+                if ancestor is target:break
+                ancestor=parents.get(ancestor)
         ancestor=parents.get(target)
         while ancestor is not None:
             if ancestor.get('id') in claimed:raise ValueError('overlapping replacement targets')
             ancestor=parents.get(ancestor)
     log=list(unresolved)
+    def prune_unprotected(node):
+        if node.get('id') in protected:return
+        for child in list(node):
+            if child.tag.rsplit('}',1)[-1] in ('defs','style','title','desc','metadata'):continue
+            if any(n.get('id') in protected for n in child.iter()):prune_unprotected(child)
+            else:node.remove(child)
     for node,targets in plans:
-        for oid in targets:parents[by_id[oid]].remove(by_id[oid])
+        removed=[];pruned=[]
+        for oid in targets:
+            if any(n.get('id') in protected for n in by_id[oid].iter()):
+                prune_unprotected(by_id[oid]);pruned.append(oid)
+            else:
+                parents[by_id[oid]].remove(by_id[oid]);removed.append(oid)
         node.attrib.pop('data-plus-replaces')
-        log.append({'replacement_id':node.get('id'),'removed_draft_ids':targets,'kept_ids':node.get('data-plus-keeps','').split(),'covered_frame_ids':node.get('data-plus-covered-frames','').split()})
+        log.append({'replacement_id':node.get('id'),'removed_draft_ids':removed,'pruned_draft_ids':pruned,'kept_ids':node.get('data-plus-keeps','').split(),'covered_frame_ids':node.get('data-plus-covered-frames','').split()})
     return log

@@ -85,8 +85,24 @@ def vector_element(data,assets,owner):
     # Retain root presentation attributes, but use explicit viewBox mapping.
     for key,value in root.attrib.items():
         if key not in ('width','height','viewBox','version','xmlns','id','transform'):group.set(key,value)
+    group.set('data-plus-generated-asset','true')
     if root.get('transform'):raise ValueError('asset root transform not supported')
     group.extend(list(root));return group
+
+
+def rmbg_runtime():
+    """Resolve the shared local DrawAI installation without downloading weights."""
+    import json, os
+    from .state import PLUS_ROOT
+    config_path=PLUS_ROOT/'benchmark/methods/drawai/method.json'
+    config=json.loads(config_path.read_text(encoding='utf-8')) if config_path.is_file() else {}
+    runtime=Path(os.environ.get('FIGFOX_DRAWAI_DIRECTORY') or config.get('code_directory') or PLUS_ROOT.parent/'tools/drawai-official-20260815')
+    root=Path(os.environ.get('FIGFOX_RMBG_RUNTIME_ROOT') or config.get('local_runtime_root') or runtime/'.local/drawai_runtime')
+    python=next((p for p in (root/'.venv/Scripts/python.exe',root/'.venv/bin/python') if p.is_file()),None)
+    for path in (runtime/'src/drawai/local_runtime.py',root/'models/rmbg2/model.safetensors'):
+        if not path.is_file():raise ValueError('RMBG2 local file unavailable: '+str(path))
+    if python is None:raise ValueError('RMBG2 runtime venv unavailable: '+str(root/'.venv'))
+    return runtime,root,python
 
 
 def remove_background_asset(asset, out_dir):
@@ -94,8 +110,7 @@ def remove_background_asset(asset, out_dir):
     import json, os, subprocess, time
     from .state import PLUS_ROOT
     out=Path(out_dir);out.mkdir(parents=True,exist_ok=True)
-    runtime=PLUS_ROOT.parent/'tools/drawai-official-20260815'
-    runtime_root=runtime/'.local/drawai_runtime'
+    runtime,runtime_root,venv_python=rmbg_runtime()
     runner=PLUS_ROOT/'runtime/rmbg_runner.py'
     model=runtime_root/'models/rmbg2/model.safetensors'
     if not model.is_file():raise ValueError('RMBG2 local model unavailable')
@@ -106,16 +121,16 @@ def remove_background_asset(asset, out_dir):
     key=hashlib.sha256(json.dumps(signature,sort_keys=True).encode()).hexdigest()[:24]
     target=out/(key+'-rmbg.png');metadata=target.with_suffix('.json')
     if target.exists() and metadata.exists():
-        cached=json.loads(metadata.read_text())
+        cached=json.loads(metadata.read_text(encoding='utf-8'))
         if cached.get('output_sha256')==hashlib.sha256(target.read_bytes()).hexdigest():
             return {**asset,**cached['derived'],'path':str(target.resolve())}
     payload={'source':asset['path'],'target':str(target.resolve()),'runtime_source':str(runtime/'src'), 'runtime_root':str(runtime_root)}
     event={'event':'local_rmbg_start','time':time.time(),'signature':signature,'source':asset['path'],'target':str(target)}
-    with (out/'rmbg-ledger.jsonl').open('a') as ledger:
+    with (out/'rmbg-ledger.jsonl').open('a', encoding='utf-8') as ledger:
         ledger.write(json.dumps(event)+'\n');ledger.flush();os.fsync(ledger.fileno())
     start=time.monotonic()
     try:
-        result=subprocess.run([str(runtime_root/'.venv/bin/python'),str(runner)],input=json.dumps(payload),text=True,capture_output=True,timeout=180)
+        result=subprocess.run([str(venv_python),str(runner)],input=json.dumps(payload),text=True,capture_output=True,timeout=180, encoding='utf-8')
         if result.returncode:raise ValueError('RMBG2 failed: '+result.stderr[-1000:])
         with Image.open(asset['path']) as source, Image.open(target) as image:
             if image.mode!='RGBA' or image.size!=source.size:raise ValueError('RMBG2 changed crop dimensions or omitted alpha')

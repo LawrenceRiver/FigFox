@@ -98,8 +98,8 @@ def measure_construction_adaptive(element, viewport, scale=4):
     padding=max(8,(b['right']-b['left'])*.1,(b['bottom']-b['top'])*.1)
     b={k:v+(-padding if k in ('left','top') else padding) for k,v in b.items()}
     for attempt in range(4):
-        if (b['right']-b['left'])*(b['bottom']-b['top'])*scale*scale>40_000_000:
-            raise ValueError('adaptive construction measurement exceeds pixel budget')
+        # measure_tight caps raster memory by adapting its sampling grid. Keep
+        # the complete construction window, including distant source geometry.
         try:result=measure_construction(element,b,scale)
         except ValueError as exc:
             if 'touches measurement viewport' not in str(exc):raise

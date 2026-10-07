@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "method-name",
+  "name": "Fill in the actual method name",
+  "upstream": null,
+  "code_directory": null,
+  "revision": null,
+  "entrypoint": null,
+  "models": [],
+  "configuration": {},
+  "output_formats": [],
+  "automated_runner": false
+}

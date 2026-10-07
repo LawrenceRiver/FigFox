@@ -9,10 +9,9 @@ def measure_tight(root,ids=None,scale=4,*,alpha_threshold=1,max_pixels=40_000_00
     if not isinstance(scale,(int,float)) or not 1<=scale<=16:raise ValueError('scale must be 1..16')
     if not isinstance(alpha_threshold,int) or not 1<=alpha_threshold<=255:raise ValueError('alpha threshold must be 1..255')
     if not isinstance(layout,bool):raise ValueError('layout must be boolean')
+    if type(max_pixels) is not int or max_pixels<1:raise ValueError('max_pixels must be a positive integer')
     env=os.environ.copy()
-    env.setdefault('PLUS_PLAYWRIGHT_MODULE',str(Path.home()/'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'))
-    env.setdefault('PLUS_CHROMIUM',str(Path.home()/'Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell'))
-    p=subprocess.run([shutil.which('node') or str(Path.home()/'.node/bin/node'),str(PLUS_ROOT/'runtime/tight-tp.cjs')],input=json.dumps({'svg':serialize(root),'ids':ids,'scale':scale,'alpha_threshold':alpha_threshold,'max_pixels':max_pixels,'layout':layout}),text=True,capture_output=True,env=env,timeout=900)
+    p=subprocess.run([shutil.which('node') or 'node',str(PLUS_ROOT/'runtime/tight-tp.cjs')],input=json.dumps({'svg':serialize(root),'ids':ids,'scale':scale,'alpha_threshold':alpha_threshold,'max_pixels':max_pixels,'layout':layout}),text=True,capture_output=True,env=env,timeout=900, encoding='utf-8')
     if p.returncode:raise ValueError(p.stderr[:3000])
     return json.loads(p.stdout)
 

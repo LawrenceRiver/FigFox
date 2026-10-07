@@ -38,7 +38,7 @@ def build_boards(original,assets,folder,page_size=12):
                 draw.text((box[0]+5,box[1]+5-bb[1]),label,font=font,fill=color)
             path=folder/f'{prefix}-board-{start//page_size+1:02d}.png';canvas.save(path)
             result['images'].append(path);pages.append({'path':str(path),'ids':[o['id'] for o in items]})
-    (folder/'manifest.json').write_text(json.dumps({'source':str(original),'pages':pages,'assets':result['pictures']+result['arrows']},ensure_ascii=False,indent=2))
+    (folder/'manifest.json').write_text(json.dumps({'source':str(original),'pages':pages,'assets':result['pictures']+result['arrows']},ensure_ascii=False,indent=2), encoding='utf-8')
     return result
 
 def review_context(original,root,run,tool_folder):
@@ -46,11 +46,11 @@ def review_context(original,root,run,tool_folder):
     import base64,hashlib
     run=Path(run);sam_file=run/'sam.json'
     if not sam_file.exists():return '',[]
-    saved=json.loads(sam_file.read_text())
+    saved=json.loads(sam_file.read_text(encoding='utf-8'))
     boards=build_boards(original,saved['assets'],run/'review-sam-boards')
     assets=boards['pictures']+boards['arrows']
     folder=Path(tool_folder);folder.mkdir(parents=True,exist_ok=True)
-    (folder/'asset-catalog.json').write_text(json.dumps({a['id']:a['path'] for a in assets}))
+    (folder/'asset-catalog.json').write_text(json.dumps({a['id']:a['path'] for a in assets}), encoding='utf-8')
     hashes={}
     for a in assets:
         h=hashlib.sha256(Path(a['path']).read_bytes()).hexdigest();hashes.setdefault(h,[]).append(a['id'])

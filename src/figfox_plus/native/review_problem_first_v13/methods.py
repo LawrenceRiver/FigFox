@@ -12,6 +12,9 @@ from ...sp.catalog import CATALOG
 from ...sp import geometry, content, arrows, compiler
 from .. import tp_v2, sp_v2, repair_toolbox
 from ..single_call.qlist import QLIST
+from .source_geometry import DISCOVERY_POLICY, REPAIR_POLICY
+from . import source_geometry
+from .. import color_guard
 
 ORDER = ('E', 'F', 'B', 'A', 'S1')
 _LOCATION = (
@@ -176,13 +179,14 @@ def build_method_pack(qlist=None, registry=None):
         card = {k:deepcopy(base[k]) for k in ('id','name','definition')}
         card.update(deepcopy(_DETAILS[base['id']]), semantic_location=_LOCATION, rcd=_RCD)
         if base['id']=='S1':
-            card.update(name='Defective regular cuboid',definition='The object shown in the original figure is a cube or cuboid whose body may be divided into segments. In the current render, faces are missing, flattened into 2D, adjacent faces do not share edges, or division lines bend into sharp angles or run through the middle to form triangular shapes, becoming garbled. Having three outer shell faces does not substitute for correct segmentation. Objects with incorrect position or overlap but valid 3D structure do not belong here.',
-                observe=['Inspect the main face of the regular solid, adjacent faces sharing edges, and body segments against the original figure. Division lines must be parallel to corresponding edges, and cells must be closed parallelograms. Record if faces are missing, flattened into 2D, adjacent faces do not share edges, division lines bend into sharp angles, triangular punctures appear in the middle, or segment counts/orientations do not match. Do not excuse an object just because three faces remain or endpoints fall on edges. The top edge of the main face must have the same slant as the original figure. Both the top face and the side face must be visible. Record multiple stacked blocks flattened into a single flat strip. Record blocks where division lines bend into sharp angles; do not excuse them just because they still resemble a block overall. Inspect every divided cuboid individually, including the smallest block. Record it if the division lines do not form closed parallelograms.'],
-                prepare_parameters=['Bind the target cuboid in the current render. Prepare origin, u, v, and depth (or depth_length and depth_angle). When segmented, prepare lattice divisions based on how many cells are on the front face and side face in the original figure. Sample face colors from the original figure.'],
-                counterevidence=['Do not report objects that are already correct cuboids. Color, photo, and icon differences do not belong here. Malformed division lines are not textures.'],
-                execute=['Use sp_replace with kind as geometry. When unsegmented, data.shape is cuboid. When segmented, including malformed division lines, data.shape is lattice with divisions based on cell counts on the front and side faces in the original figure; it remains the same object, do not retain original polylines. measurement_viewport encloses construction, target_tp uses extent of object in current render, mode is contain. Do not draw polygons by hand, do not paste photos. Set u and v to match the slant of the main face in the original figure. Ensure depth makes the side face visible. Multiple blocks must match the block count in the original figure; do not arrange into a single flat strip.'],
-                fallback=['Retain as unresolved if SP construction fails; do not fall back to photo crops.'],
-                methods=['sp_replace','measure'])
+            card.update(name='Defective source cuboid', definition=DISCOVERY_POLICY,
+                observe=['Establish source dimensionality before comparing each actual cuboid and its divisions. A planar matrix/tensor column has no missing side face. Correct positioning and overlap through E/F.'],
+                prepare_parameters=['Localize source front/adjacent faces independently in original pixels where possible; attach source_geometry to the SP operation or the alternative scoped program. Prepare geometry, divisions and face colors from the actual source projection. Do not invent measurements merely to satisfy a guard.'],
+                counterevidence=['Planar grids, tensor names, shading and repeated cells are not evidence of a cuboid. Uncertain source depth must not be invented.', 'Do not report already correct cuboids or force horizontal front edges to slant.'],
+                execute=[REPAIR_POLICY, 'measurement_viewport encloses construction; target_tp uses current object extent, mode is contain. Multiple blocks retain the source count and arrangement.'],
+                postcheck=['Original-pixel edge support is an execution guard, not semantic acceptance. Compare original vs final structure, divisions, labels and neighbors.', _POSITION_CHECK],
+                fallback=['When original-pixel support is insufficient, preserve the object and record the unresolved reason in the existing receipt. The existing one-time followup handles unresolved confirmed issues; do not invent evidence, add retries or create a separate execution branch.'],
+                methods=['sp_replace','bp_patch','bp_add','measure'])
         if base['id']=='A':
             card.update(name='Knowledge, Semantic Symbol, and Key Connection Errors',definition='Knowledge content, semantic icon identities, arrow directions/duplicates/missing items/connections, or missing structural members causing expression errors; usable abstract styles and subtle textures do not belong here.',
                 prepare_parameters=['Determine the subtype first. For text and formulas, prepare old content, new content, justification, and styles; for icons, prepare original figure identity, complete asset, and current container; for arrows, prepare start/endpoints, heads, routes, connecting frames, and neighbors.',
@@ -213,6 +217,11 @@ def build_method_pack(qlist=None, registry=None):
         cards.append(card)
     from .execution_contract import build_execution_contract
     pack = {
+        'source_color_guard': {'implementation_sha256': hashlib.sha256(inspect.getsource(color_guard).encode()).hexdigest(),
+                              'acceptance': 'preserve visible first-draft outlines when samples collapse stroke/fill contrast; not visual PASS'},
+        'source_geometry_guard': {'version': 'source-pixel-faces-v3-single-flow',
+                                  'implementation_sha256': hashlib.sha256(inspect.getsource(source_geometry).encode()).hexdigest(),
+                                  'acceptance': 'directional source edge support inside the existing execution precheck; insufficient evidence preserves the object and remains unresolved; semantic acceptance remains pending'},
         'runtime_contract':build_execution_contract(),
         'format':'review-method-pack-v1', 'inspection_order':list(ORDER),
         'repair_order':{'main':['A','B','S1','E','F'],'dependency_insertions':[]},
@@ -230,10 +239,10 @@ def build_method_pack(qlist=None, registry=None):
           'tp_transform':{'args':{'world_matrix':'six finite invertible affine numbers'},'returns':'selected_ids, before, after, world_matrix'},
           'tp_align':{'args':{'reference_ids':'independent current IDs','mode':'center_x|center_y|left|right|top|bottom'},'returns':'TP transform report'},
           'tp_fit':{'args':{'target_tp':'left,top,right,bottom','mode':'contain|stretch'},'returns':'TP transform report'},
-          'sp_replace':{'args':{'kind':'geometry|frame|text|formula|arrow','data':'matching constructor parameters','measurement_viewport':'local construction bounds','target_tp':'current scene bounds','mode':'contain|stretch'},'returns':'replacement_id, constructor_data, construction_measurement and replacement report'},
-          'sp_photo':{'args':{'source_crop':'independent original pixel [x,y,width,height]','target_tp':'current scene bounds','representation':'raster|vector','remove_background':'boolean, default true','backend':'vector backend, default vtracer','padding':'nonnegative','mode':'contain|stretch'},'returns':'replacement_id, asset, source_mapping, representation, padded_target_tp'},
+          'sp_replace':{'args':{'kind':'geometry|frame|text|formula|arrow','data':'matching constructor parameters','measurement_viewport':'local construction {left,top,right,bottom}; edge-array alias allowed','target_tp':'current scene {left,top,right,bottom}; edge-array alias allowed','mode':'contain|stretch'},'returns':'replacement_id, constructor_data, construction_measurement and replacement report'},
+          'sp_photo':{'args':{'source_crop':'independent original pixel [x,y,width,height]','target_tp':'current scene {left,top,right,bottom}; edge-array alias allowed','representation':'raster|vector','remove_background':'boolean, default true','backend':'vector backend, default vtracer','padding':'nonnegative','mode':'contain|stretch'},'returns':'replacement_id, asset, source_mapping, representation, padded_target_tp'},
           'bp_patch':{'args':{'attributes':'allowed scalar SVG attributes by tag; see constraints','text':'optional replacement for text node, removes existing children'}, 'constraints':{'attributes':sorted(repair_toolbox._PATCH_ATTRS), 'geometry_by_tag':{k:sorted(v) for k,v in repair_toolbox._GEOMETRY_BY_TAG.items()}, 'style':sorted(repair_toolbox._STYLE_ATTRS), 'href':'local use references only, checked for scope and cycles'}, 'returns':'target_ids, applied attributes and text'},
-          'bp_add':{'args':{'parent_id':'selected g/svg ID or @parent for common container of targets','svg':'one to five inert fragments; unique IDs on every new element'},'returns':'added_ids, resolved_parent_id, world_to_parent_matrix'},
+          'bp_add':{'args':{'parent_id':'selected g/svg ID or @parent for common container of targets','svg':'one to five inert fragments; unique IDs on every new element; existing local marker/gradient/clip definitions may be referenced read-only; unresolved IDs and external resources are forbidden'},'returns':'added_ids, resolved_parent_id, world_to_parent_matrix, read_only_existing_references'},
           'bp_remove':{'args':{},'returns':'removed_ids'},
           'sample_colors':{'args':{'regions':'list of independently located original pixel xywh ROIs'},'returns':'samples with modal_rgb/modal_hex; connect returned value to actual patch'},
           'bp_program':{'args':{'operations':'ordered native TP/SP/BP operations'},'returns':'real operation reports; failing transaction must not partially apply'},

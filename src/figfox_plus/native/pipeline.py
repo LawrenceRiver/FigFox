@@ -1,9 +1,11 @@
 """Native SVG first pass, paired crops, audited diagnosis and local tool execution."""
+from figfox_plus.image_io import imread
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 from .document import parse,serialize,measure,public_svg,extract_response,bind_assets,frame_ids
-from .tools import execute,nodes,sp_element
+from .tools import execute,nodes
 from .pack import build
 from .diagnosis import audit,CATEGORIES,normalize,coverage_audit
 from ..state import PLUS_ROOT,new_run,write_json
@@ -15,7 +17,14 @@ from ..sam import prepare_assets
 def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 def stage(root,original,folder):
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
-    (folder/'scene.svg').write_text(serialize(root));b=measure(root,folder/'preview.png');write_json(folder/'bounds.json',b)
+    try:b=measure(root,folder/'preview.png')
+    except (ValueError,OSError,subprocess.TimeoutExpired) as exc:
+        fallback=folder.parent/'first-draft.svg'
+        if folder.name!='stage-0' or not fallback.is_file():raise
+        root=parse(fallback.read_text(encoding='utf-8'))
+        b=measure(root,folder/'preview.png')
+        write_json(folder/'render-fallback.json',{'source':str(fallback),'error':str(exc),'visual_passed':False})
+    (folder/'scene.svg').write_text(serialize(root), encoding='utf-8');write_json(folder/'bounds.json',b)
     frames=build(original,folder/'preview.png',root,b,folder/'pack');return b,frames
 
 def archived_first(original,source):
@@ -23,7 +32,7 @@ def archived_first(original,source):
     if 'quarantine' in source.parts:raise ValueError('quarantined source forbidden')
     if sha(source/'work/ORIGINAL.png')!=sha(original):raise ValueError('archive original does not match input')
     response=source/'response-pass1.json';root=parse(extract_response(response))
-    library=json.loads((source/'picture-library.json').read_text())
+    library=json.loads((source/'picture-library.json').read_text(encoding='utf-8'))
     assets={a['id']:source/'pictures'/a['file'] for a in library['pictures']}
     # Only asset IDs actually present in model output are bound. No positions copied.
     bind_assets(root,assets)
@@ -43,58 +52,41 @@ def first(original,run,send=call_gpt55,sam=None):
     from .arrow_hints import heads_in_crop,_head_pixels
     import cv2
     for a in arrows:
-        im=cv2.imread(a['path'],cv2.IMREAD_UNCHANGED);mask=im[:,:,3] if im.ndim==3 and im.shape[2]==4 else None
+        im=imread(a['path'],cv2.IMREAD_UNCHANGED);mask=im[:,:,3] if im.ndim==3 and im.shape[2]==4 else None
         heads=heads_in_crop(im[:,:,:3],mask);a['head_pixels']=_head_pixels(heads);a['detected_heads']=len(heads)
     write_json(run/'arrow-head-evidence.json',[{k:a.get(k) for k in ('id','source_crop','head_pixels','detected_heads')} for a in arrows])
     def public(items):return json.dumps([{k:a[k] for k in ('id','role','source_crop','head_pixels','detected_heads') if k in a} for a in items],ensure_ascii=False)
-    prompt=(PLUS_ROOT/'prompts/first_native.md').read_text().replace('{{CANVAS}}',f'{W} x {H}').replace('{{ARROW_LIBRARY}}',public(arrows)).replace('{{IMAGE_LIBRARY}}',public(pictures))
+    prompt=(PLUS_ROOT/'prompts/first_native.md').read_text(encoding='utf-8').replace('{{CANVAS}}',f'{W} x {H}').replace('{{ARROW_LIBRARY}}',public(arrows)).replace('{{IMAGE_LIBRARY}}',public(pictures))
     prompt+='\n'+manual()+'\nImage attachment sequence: full original figure, followed by SAM images, then SAM arrows; each group is arranged in the order of the corresponding asset table. SAM may produce false positives or missed detections.\n'
     from .sam_board import build_boards
     boards=build_boards(original,pictures,run/'first-sam-boards')
     prompt+='\nThe final attached image is the original-figure overview annotated with SAM image bounding boxes, used to establish correspondence during conduction drawing and execute replacement at the end. Annotation label to asset ID mapping: '+json.dumps({a['id']:a['source_id'] for a in boards['pictures']},ensure_ascii=False)+'\nReference hrefs must use the mapped real asset IDs; the annotated overview contains no human-defined grouping or semantic answers.'
     response=send(prompt,[Path(original)]+[Path(a['path']) for a in pictures+arrows]+boards['images'],run/'gpt55','A-derived native SVG first pass')
-    root=parse(response)
-    (run/'before-sam-replacement.svg').write_text(serialize(root))
-    from .sam_groups import restore_source_boxes,crop_target_box
+    repairs=[]
+    root=parse(response,repairs=repairs)
+    write_json(run/'svg-normalization.json',{'repairs':repairs,'raw_response_unchanged':True})
+    (run/'before-sam-replacement.svg').write_text(serialize(root), encoding='utf-8')
+    from .sam_groups import restore_source_boxes
     write_json(run/'first-sam-placement.json',restore_source_boxes(root,pictures))
     bind_assets(root,{a['id']:a['path'] for a in pictures+arrows})
-    # SP declarations are executed by the same registered code used in repair.
-    for n in list(root.iter()):
-        if n.get('data-plus-sp'):
-            spec=json.loads(n.get('data-plus-sp'));part=sp_element(spec['kind'],spec['data'],n.get('id'));n.extend(list(part));n.attrib.pop('data-plus-sp')
-    for n in list(root.iter()):
-        if n.get('data-plus-crop'):
-            vals=[float(v) for v in n.get('data-plus-crop').split(',')]
-            spec={'id':'crop_'+n.get('id'),'issue_id':'first','action':'asset','target_ids':[n.get('id')], 'args':{'source_crop':vals,'target_box':crop_target_box(n,vals),'classification':'photo' if n.get('data-plus-representation')=='raster' else 'complex_geometry'}}
-            root,_=execute(root,[spec],[{'id':'first','target_ids':[n.get('id')]}],original,run)
-    color_log=[]
-    for node in list(root.iter()):
-        if not node.get('data-plus-color'):continue
-        oid=node.get('id');samples=json.loads(node.get('data-plus-color'))
-        if not isinstance(samples,dict) or not samples or set(samples)-{'fill','stroke'}:raise ValueError('invalid color sampling declaration')
-        for attribute,roi in samples.items():
-            op={'id':'color_'+oid+'_'+attribute,'issue_id':'first_color_'+oid,'action':'sample_color','target_ids':[oid],'args':{'source_crop':roi,'attribute':attribute}}
-            root,log=execute(root,[op],[{'id':op['issue_id'],'target_ids':[oid]}],original,run/'first-color-tools');color_log.extend(log)
-        nodes(root)[oid].attrib.pop('data-plus-color',None)
-    from .sam_replace import apply_replacements
-    write_json(run/'first-sam-replacement.json',apply_replacements(root))
-    write_json(run/'first-color-execution.json',color_log)
-    return root
+    (run/'first-draft.svg').write_text(serialize(root),encoding='utf-8')
+    from .first_postprocess import apply_declarations
+    return apply_declarations(root,original,run)
 
 def run_archive(original,source,rounds=1):
     if rounds not in (0,1):raise ValueError('single-call repair accepts zero or one request')
     run=new_run(PLUS_ROOT/'runs','native');root,proof=archived_first(original,source)
-    write_json(run/'provenance.json',proof);(run/'source.svg').write_text(serialize(root))
+    write_json(run/'provenance.json',proof);(run/'source.svg').write_text(serialize(root), encoding='utf-8')
     write_json(run/'run.json',{'original':str(Path(original).resolve()),'execution_source':'archived-raw-gpt55-native','status':'building','visual_passed':False,'manual_numeric_answers':False})
     stage(root,original,run/'stage-0')
-    state=json.loads((run/'run.json').read_text());state.update(latest_stage=str(run/'stage-0'),status='baseline_rendered',baseline_svg_sha256=sha(run/'stage-0/scene.svg'));write_json(run/'run.json',state)
+    state=json.loads((run/'run.json').read_text(encoding='utf-8'));state.update(latest_stage=str(run/'stage-0'),status='baseline_rendered',baseline_svg_sha256=sha(run/'stage-0/scene.svg'));write_json(run/'run.json',state)
     if rounds:resume(run,rounds)
     return run
 
 def run_image(original,rounds=1):
     if rounds not in (0,1):raise ValueError('single-call repair accepts zero or one request')
     run=new_run(PLUS_ROOT/'runs','native');write_json(run/'run.json',{'original':str(Path(original).resolve()),'execution_source':'native-gpt55','status':'building','visual_passed':False})
-    root=first(original,run);stage(root,original,run/'stage-0');state=json.loads((run/'run.json').read_text());state.update(latest_stage=str(run/'stage-0'),status='baseline_rendered',baseline_svg_sha256=sha(run/'stage-0/scene.svg'));write_json(run/'run.json',state)
+    root=first(original,run);stage(root,original,run/'stage-0');state=json.loads((run/'run.json').read_text(encoding='utf-8'));state.update(latest_stage=str(run/'stage-0'),status='baseline_rendered',baseline_svg_sha256=sha(run/'stage-0/scene.svg'));write_json(run/'run.json',state)
     if rounds:resume(run,rounds)
     return run
 
@@ -102,7 +94,7 @@ def resume(run,rounds=1,send=call_deepseek):
     if send is call_deepseek:
         if rounds!=1:raise ValueError('single-call repair accepts exactly one request, not rounds')
         from .single_call.runner import prepare,run_prepared
-        run=Path(run).resolve();state=json.loads((run/'run.json').read_text())
+        run=Path(run).resolve();state=json.loads((run/'run.json').read_text(encoding='utf-8'))
         if state.get('evaluation_eligible') is False:raise ValueError('assistant-provided image-specific guidance is not a clean input')
         task=run/'single-call'
         if not task.exists():
@@ -116,7 +108,7 @@ def resume(run,rounds=1,send=call_deepseek):
         result=run_prepared(task)
         # Keep the native stage contract usable for reports without launching a new request.
         latest=run/'stage-single-call'
-        stage(parse(Path(result['images']['image']['svg']).read_text()),Path(state['original']),latest)
+        stage(parse(Path(result['images']['image']['svg']).read_text(encoding='utf-8')),Path(state['original']),latest)
         state.update(latest_stage=str(latest),status='pending_review',single_call_task=str(task),repair_result=str(task/'result.json'),visual_passed=False)
         write_json(run/'run.json',state);return run
     raise ValueError('custom legacy transports are disabled; use the single-call task entry')
@@ -125,15 +117,15 @@ def resume(run,rounds=1,send=call_deepseek):
 def _resume_offline(run,rounds=2,send=None):
     if send is None or send is call_deepseek:raise ValueError('offline fixture requires an injected non-live transport')
     # Historical fixture protocol only, never selected by the public entry.
-    run=Path(run);state=json.loads((run/'run.json').read_text());original=Path(state['original']);current=Path(state['latest_stage']);root=parse((current/'scene.svg').read_text())
+    run=Path(run);state=json.loads((run/'run.json').read_text(encoding='utf-8'));original=Path(state['original']);current=Path(state['latest_stage']);root=parse((current/'scene.svg').read_text(encoding='utf-8'))
     if state.get('evaluation_eligible') is False:
         raise ValueError('This run contains assistant-provided image-specific guidance; restart from the locked first-stage SVG.')
     machine_feedback=None
     used=[int(p.name.split('-')[-1]) for p in run.glob('deepseek-*') if p.name.split('-')[-1].isdigit()];start=max(used,default=0)+1
     seen=set()
     for n in range(start,start+rounds):
-        b=json.loads((current/'bounds.json').read_text());frames=json.loads((current/'pack/pack.json').read_text())['frames']
-        prompt=(PLUS_ROOT/'prompts/repair.md').read_text()+'\n'+(PLUS_ROOT/'prompts/repair-legacy-guidance.md').read_text()+'\n'+(PLUS_ROOT/'docs/native-tools.md').read_text()+'\n'+manual()
+        b=json.loads((current/'bounds.json').read_text(encoding='utf-8'));frames=json.loads((current/'pack/pack.json').read_text(encoding='utf-8'))['frames']
+        prompt=(PLUS_ROOT/'prompts/repair.md').read_text(encoding='utf-8')+'\n'+(PLUS_ROOT/'prompts/repair-legacy-guidance.md').read_text(encoding='utf-8')+'\n'+(PLUS_ROOT/'docs/native-tools.md').read_text(encoding='utf-8')+'\n'+manual()
         prompt+='\n原生SVG模式覆盖Scene模式：直接使用现SVG对象ID和原生坐标，不返回Scene。不受构造器限制的既有SVG保持原样。下面原图第一张，当前全图第二张；之后每张图左原右现，标题与frame_id顺序一致。\n'
         prompt+='\nFrame order:'+json.dumps([f['frame_id'] for f in frames])+'\nSVG:'+public_svg(root)
         evidence={i:{k:v for k,v in o.items() if k in ('tag','parent_id','geometry_bbox','world','bounds_complete','effects','text')} for i,o in b['objects'].items()}

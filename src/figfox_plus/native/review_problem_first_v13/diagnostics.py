@@ -24,7 +24,7 @@ def build_diagnostics(svg_path, tp_path):
               'normal_containment': [], 'structure_candidates': [], 'unmeasurable': [],
               'instruction': 'Candidates are not real errors. Original-image VLM must confirm or refute semantics and actual contours. Never map current TP coordinates onto the original image. Inspect unlisted regions too.'}
     root = ET.parse(Path(svg_path)).getroot()
-    tp = json.loads(Path(tp_path).read_text())
+    tp = json.loads(Path(tp_path).read_text(encoding='utf-8'))
     if tp.get('coordinate_space') not in (None, 'current_svg_world'):
         raise ValueError('Only current_svg_world TP is accepted')
     nodes = list(root.iter())
