@@ -1,0 +1,17 @@
+{
+  "sample_id": "sample-0001",
+  "original_filename": null,
+  "input_sha256": null,
+  "status": "not_run",
+  "exit_code": null,
+  "elapsed_seconds": null,
+  "model_requests": null,
+  "estimated_usd": null,
+  "known_estimated_usd": 0,
+  "cost_complete": false,
+  "output_stage": "none",
+  "visual_passed": false,
+  "artifacts": {},
+  "evidence_dir": "raw/",
+  "error": null
+}

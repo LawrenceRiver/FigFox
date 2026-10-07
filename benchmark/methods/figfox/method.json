@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "figfox",
+  "name": "FigFox (native chain)",
+  "upstream": "https://github.com/LawrenceRiver/FigFox",
+  "code_directory": ".",
+  "entrypoint": "scripts/benchmark.py run-figfox --dataset <dataset-id>",
+  "pipeline": "chain / review_problem_first_v13",
+  "models": "Actual model IDs and usage are saved in raw case requests and costs.json; credentials remain in .env.",
+  "revision_evidence": "raw/source-manifest.json; raw case recovery.json when applicable",
+  "configuration_evidence": "Raw request payloads, prompts and per-case costs.json",
+  "output_formats": ["svg", "png"],
+  "automated_runner": true
+}
