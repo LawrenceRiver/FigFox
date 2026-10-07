@@ -47,12 +47,12 @@ def freeze_arrow_evidence(spec, original_asset, output_dir):
     original_path=_file(original_asset)
     if not isinstance(original_asset,dict) or original_asset.get('sha256')!=_sha(original_path):raise ValueError('original asset must carry its verified sha256')
     if not spec or not spec.get('sam_manifest'):return _unavailable('no_explicit_upstream_sam')
-    manifest_path=_file(spec['sam_manifest']);manifest=json.loads(manifest_path.read_text())
+    manifest_path=_file(spec['sam_manifest']);manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
     provenance={'sam_manifest':str(manifest_path),'sam_manifest_sha256':_sha(manifest_path),
                 'original_asset_sha256':original_asset['sha256'],'sam_source_hash':manifest.get('source_hash')}
     if manifest.get('mock') is not False:raise ValueError('only real upstream SAM evidence is accepted')
     if manifest.get('status',{}).get('sam')!='ok':return _unavailable('upstream_sam_unavailable',provenance)
-    catalog_path=_file(manifest.get('catalog_path'));catalog=json.loads(catalog_path.read_text())
+    catalog_path=_file(manifest.get('catalog_path'));catalog=json.loads(catalog_path.read_text(encoding='utf-8'))
     if catalog.get('original_sha256')!=manifest.get('source_hash'):raise ValueError('SAM source and catalog identity disagree')
     request_path=_file(str(catalog_path.parent/'request_image.png'))
     if _sha(request_path)!=catalog.get('canonical_sha256'):raise ValueError('SAM request image hash mismatch')
@@ -65,7 +65,7 @@ def freeze_arrow_evidence(spec, original_asset, output_dir):
                       canonical_rgb_pixel_sha256=hashlib.sha256(original.tobytes()).hexdigest(),image_size=list(original.size))
     head_map={}
     if spec.get('head_evidence'):
-        head_path=_file(spec['head_evidence']);heads=json.loads(head_path.read_text())
+        head_path=_file(spec['head_evidence']);heads=json.loads(head_path.read_text(encoding='utf-8'))
         if not isinstance(heads,list):raise ValueError('head evidence must be an array')
         for head in heads:
             if not isinstance(head,dict) or not isinstance(head.get('id'),str) or head['id'] in head_map:raise ValueError('invalid or duplicate head evidence identity')

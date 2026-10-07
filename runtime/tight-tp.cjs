@@ -1,9 +1,9 @@
 // Actual rendered alpha bounds, measured independently from layout/getBBox estimates.
 const fs=require('fs');
-const {chromium}=require(process.env.PLUS_PLAYWRIGHT_MODULE);
+const browserRuntime = require('./browser.cjs');
 (async()=>{
  const input=JSON.parse(fs.readFileSync(0,'utf8'));
- const browser=await chromium.launch({executablePath:process.env.PLUS_CHROMIUM,headless:true});
+ const browser=await browserRuntime.launch();
  try {
   const context=await browser.newContext({viewport:{width:1800,height:1400}});
   await context.route('**/*',r=>r.abort());
@@ -36,8 +36,10 @@ const {chromium}=require(process.env.PLUS_PLAYWRIGHT_MODULE);
     }
     return {canvas,viewport,world_to_viewport,objects,contract:'Layout box of each object. Isolated alpha coverage is a separate measurement.'};
    }
-   const scale=options.scale, pw=Math.ceil(viewport.width*scale), ph=Math.ceil(viewport.height*scale);
-   if(pw*ph>options.max_pixels)throw Error('requested TP precision exceeds configured raster memory limit');
+   let scale=Math.min(options.scale,Math.sqrt(options.max_pixels/(viewport.width*viewport.height)));
+   let pw=Math.ceil(viewport.width*scale),ph=Math.ceil(viewport.height*scale);
+   while(pw*ph>options.max_pixels){scale*=0.999;pw=Math.ceil(viewport.width*scale);ph=Math.ceil(viewport.height*scale);}
+   if(scale<0.125)throw Error('SVG viewport too large for meaningful TP measurement');
    const raster=document.createElement('canvas');raster.width=pw;raster.height=ph;
    const ctx=raster.getContext('2d',{willReadFrequently:true});
    // Freeze inherited/computed paint and text properties before removing siblings.
@@ -135,7 +137,7 @@ const {chromium}=require(process.env.PLUS_PLAYWRIGHT_MODULE);
     }catch(e){objects[id]={status:'unsupported',reason:String(e),tight_bbox:null};}
     finally{URL.revokeObjectURL(url);}
    }
-   return {canvas,viewport,world_to_viewport,objects,contract:'Minimum axis-aligned rectangle of isolated object rendered coverage, within document viewport. Precision limited by stated sample grid and 8-bit alpha threshold; not analytic infinite precision. Ancestor clipping and own descendants included; unrelated siblings/occluders excluded.'};
+   return {canvas,viewport,world_to_viewport,objects,requested_sample_scale:options.scale,effective_sample_scale:scale,raster_dimensions:[pw,ph],contract:'Minimum axis-aligned rectangle of isolated object rendered coverage, within document viewport. Precision limited by stated sample grid and 8-bit alpha threshold; not analytic infinite precision. Ancestor clipping and own descendants included; unrelated siblings/occluders excluded.'};
   },{ids:input.ids||null,scale:input.scale||4,alpha_threshold:input.alpha_threshold||1,max_pixels:input.max_pixels||40000000,layout:!!input.layout});
   process.stdout.write(JSON.stringify(result));
  }finally{await browser.close();}

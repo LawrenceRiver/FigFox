@@ -754,6 +754,8 @@ def _file_sha256(path: Path) -> str:
 
 
 def _fsync_directory(path: Path) -> None:
+    if os.name != "posix":
+        return  # Directory-entry sync is POSIX-only; file data is already fsynced by callers.
     descriptor = os.open(path, os.O_RDONLY)
     try:
         os.fsync(descriptor)

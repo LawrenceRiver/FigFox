@@ -36,5 +36,5 @@ def write_checkpoint(root,folder,index):
     # Render before committing identity; a render failure never changes active scene.
     measurement=measure(root,png)
     if not png.is_file():raise ValueError('renderer did not produce PNG')
-    svg.write_text(serialize(root))
+    svg.write_text(serialize(root), encoding='utf-8')
     return {'svg':str(svg.resolve()),'png':str(png.resolve()),'revision':digest(svg)},measurement

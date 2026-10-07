@@ -1,6 +1,7 @@
 """Local module-program Reconstructor. No model transport, eval, or shell code."""
+from figfox_plus.image_io import imread
 from copy import deepcopy
-import fcntl
+from figfox_plus import file_lock as fcntl
 import hashlib
 import json
 import math
@@ -88,7 +89,7 @@ def _relation_report(root, rules, aliases):
 def _sample_colors(original, regions):
     import cv2
     import numpy as np
-    pixels=cv2.imread(str(original),cv2.IMREAD_COLOR)
+    pixels=imread(str(original),cv2.IMREAD_COLOR)
     if pixels is None:raise ValueError('cannot read original image')
     samples=[]
     for x,y,w,h in regions:
@@ -155,7 +156,7 @@ def _perform(root, step, issue, original, folder, aliases, results):
 def execute_plan(plan, manifest, task_dir):
     """Apply a validated ordered module program, checkpoint after each operation."""
     task_dir=Path(task_dir).resolve()
-    with (task_dir/'execute.lock').open('a') as lock:
+    with (task_dir/'execute.lock').open('a', encoding='utf-8') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
         return _execute(plan,manifest,task_dir)
 
@@ -167,15 +168,15 @@ def _execute(plan,manifest,task_dir):
     signature=hashlib.sha256(json.dumps(plan,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
     folder=task_dir/'execution';folder.mkdir(exist_ok=True);state_path=folder/'state.json'
     if state_path.exists():
-        state=json.loads(state_path.read_text())
+        state=json.loads(state_path.read_text(encoding='utf-8'))
         if state['plan_sha256']!=signature:raise ValueError('cannot resume with a different plan')
         for im,data in state['images'].items():
             if digest(data['svg'])!=data['sha256']:raise ValueError('execution checkpoint changed')
-        if state.get('complete'):return json.loads((task_dir/'result.json').read_text())
+        if state.get('complete'):return json.loads((task_dir/'result.json').read_text(encoding='utf-8'))
     else:
         state={'plan_sha256':signature,'images':{im:{'svg':v['svg'],'sha256':digest(v['svg'])} for im,v in manifest['images'].items()},
                'rcd':[],'results':{},'aliases':{im:{} for im in manifest['images']},'complete':False}
-    roots={im:ET.fromstring(Path(data['svg']).read_text()) for im,data in state['images'].items()}
+    roots={im:ET.fromstring(Path(data['svg']).read_text(encoding='utf-8')) for im,data in state['images'].items()}
     completed={r['operation_id']:r for r in state['rcd']}
     success={'executed_changed','executed_no_change'}
     for index,step in enumerate(plan['ask_data']):
@@ -227,7 +228,7 @@ def _execute(plan,manifest,task_dir):
         record['after_revision']=revision(root)
         # Checkpoints are immutable files. The single atomic state pointer commits
         # scene + RCD together; interruption cannot cause a committed step to repeat.
-        dest=folder/f'checkpoint-{index:04d}.svg';dest.write_text(serialize(root))
+        dest=folder/f'checkpoint-{index:04d}.svg';dest.write_text(serialize(root), encoding='utf-8')
         state['images'][im]={'svg':str(dest),'sha256':digest(dest)}
         state['rcd'].append(record);completed[step['id']]=record
         write_json(state_path,state)
@@ -236,7 +237,7 @@ def _execute(plan,manifest,task_dir):
     outputs={};global_checks={}
     for index,(im,root) in enumerate(roots.items()):
         svg=folder/f'final-{index:03d}.svg';png=folder/f'final-{index:03d}.png'
-        svg.write_text(serialize(root));measure(root,png)
+        svg.write_text(serialize(root), encoding='utf-8');measure(root,png)
         outputs[im]={'svg':str(svg),'png':str(png),'revision':revision(root),'sha256':digest(svg)}
         global_checks[im]=_relation_report(root,plan.get('relations',{}).get(im,[]),state['aliases'][im])
     issue_results=[]
@@ -250,7 +251,7 @@ def _execute(plan,manifest,task_dir):
             'global_checks':global_checks,'unresolved_relations':plan.get('unresolved_relations',{}),
             'human_visual_passed':False,'model_requests_limit':1}
     write_json(task_dir/'result.json',result)
-    (task_dir/'rcd.jsonl').write_text(''.join(json.dumps(r,ensure_ascii=False)+'\n' for r in state['rcd']))
+    (task_dir/'rcd.jsonl').write_text(''.join(json.dumps(r,ensure_ascii=False)+'\n' for r in state['rcd']), encoding='utf-8')
     from .report import write_report
     write_report(task_dir,manifest,result)
     state['complete']=True;write_json(state_path,state)

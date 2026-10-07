@@ -32,5 +32,5 @@ def build(original,current,root,measured,out):
             frames.append({'frame_id':fid,'canvas_crop':[x+c['x'],y+c['y'],w,h],'pair':str(path.resolve()),'display_scale':scale,'original_left':True})
     write_json(out/'pack.json',{'frames':frames,'canvas':c,'coverage_inferred_from':'explicit frame metadata or legacy closed shapes with explicit IDs','visual_passed':False})
     cards=''.join(f'<section><h2>{html.escape(f["frame_id"])}</h2><img src="{Path(f["pair"]).name}"></section>' for f in frames)
-    (out/'index.html').write_text('<meta charset="utf-8"><title>All frame comparisons</title><style>body{font-family:system-ui;margin:24px}img{max-width:100%}section{border-bottom:1px solid #ccc;padding:12px}</style><h1>Original left · Current right</h1>'+cards)
+    (out/'index.html').write_text('<meta charset="utf-8"><title>All frame comparisons</title><style>body{font-family:system-ui;margin:24px}img{max-width:100%}section{border-bottom:1px solid #ccc;padding:12px}</style><h1>Original left · Current right</h1>'+cards, encoding='utf-8')
     return frames

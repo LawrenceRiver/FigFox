@@ -22,6 +22,10 @@ def _quote(path):
 
 
 def run_code(code, input_svg, output_dir, *, timeout=20, max_output_bytes=20_000_000, current_tp=None):
+    if sys.platform != 'darwin':
+        from .linux_sandbox import run_code as run_linux
+        return run_linux(code, input_svg, output_dir, timeout=timeout,
+                             max_output_bytes=max_output_bytes, current_tp=current_tp)
     output_dir=Path(output_dir).resolve();output_dir.mkdir(parents=True,exist_ok=False)
     receipt={'status':'failed','code_sha256':hashlib.sha256(code.encode()).hexdigest(),
              'visual_acceptance':'pending','backend':'macos-seatbelt','network':False,
@@ -30,7 +34,7 @@ def run_code(code, input_svg, output_dir, *, timeout=20, max_output_bytes=20_000
         receipt['error']='sandbox_unavailable';return receipt
     if not isinstance(code,str) or len(code.encode())>1_000_000:
         receipt['error']='invalid_source_size';return receipt
-    (output_dir/'program.py').write_text(code)
+    (output_dir/'program.py').write_text(code, encoding='utf-8')
     with tempfile.TemporaryDirectory(prefix='figfox-exec-',dir='/private/tmp') as tmp:
         base=Path(tmp).resolve();methods=base/'methods';work=base/'work';work.mkdir()
         source=Path(__file__).resolve().parents[2]
@@ -53,15 +57,15 @@ exec(compile(SOURCE, '<generated-program>', 'exec'), globals())
                   'INPUT':str(source_svg),'OUTPUT':str(generated),'SOURCE':code,'TP_JSON':json.dumps(current_tp or {},ensure_ascii=False)}
         receipt['tp_snapshot_sha256']=hashlib.sha256(settings['TP_JSON'].encode()).hexdigest()
         launcher=base/'launch.py'
-        launcher.write_text('\n'.join(f'{k}={v!r}' for k,v in settings.items())+'\n'+wrapper)
+        launcher.write_text('\n'.join(f'{k}={v!r}' for k,v in settings.items())+'\n'+wrapper, encoding='utf-8')
         # Root and ancestor directory reads are required by dyld; no home data is allowed.
         reads=['/','/opt','/private','/private/tmp','/dev/null','/dev/urandom']
         trees=['/System','/usr','/bin','/Library/Apple','/Library/Frameworks','/opt/homebrew/Cellar/python@3.14','/opt/homebrew/opt/python@3.14','/private/preboot',str(base)]
         profile='(version 1)\n(deny default)\n(allow process-exec)\n(allow sysctl-read)\n(allow file-read-metadata)\n'
         profile+='(allow file-read* '+' '.join('(literal '+_quote(p)+')' for p in reads)+' '+' '.join('(subpath '+_quote(p)+')' for p in trees)+')\n'
         profile+='(allow file-write* (subpath '+_quote(work)+'))\n'
-        policy=base/'profile.sb';policy.write_text(profile)
-        (output_dir/'sandbox-policy.txt').write_text(profile.replace(str(base),'<isolated-job>'))
+        policy=base/'profile.sb';policy.write_text(profile, encoding='utf-8')
+        (output_dir/'sandbox-policy.txt').write_text(profile.replace(str(base),'<isolated-job>'), encoding='utf-8')
         # Use the system-installed interpreter; -I rejects user site and Python env injection.
         python=Path(sys.base_prefix)/'bin/python3'
         if not python.exists():python=Path('/opt/homebrew/bin/python3')
@@ -75,7 +79,7 @@ exec(compile(SOURCE, '<generated-program>', 'exec'), globals())
                 while proc.poll() is None:
                     if time.monotonic()-start>=timeout:
                         receipt['error']='execution_timeout';break
-                    memory=subprocess.run(['/bin/ps','-o','rss=','-p',str(proc.pid)],capture_output=True,text=True)
+                    memory=subprocess.run(['/bin/ps','-o','rss=','-p',str(proc.pid)],capture_output=True,text=True, encoding='utf-8')
                     if memory.stdout.strip().isdigit() and int(memory.stdout.strip())>524288:
                         receipt['error']='memory_limit';break
                     time.sleep(0.05)
@@ -89,9 +93,9 @@ exec(compile(SOURCE, '<generated-program>', 'exec'), globals())
                 if not generated.exists() or generated.is_symlink() or not generated.resolve().is_relative_to(work):
                     raise ValueError('missing_or_unsafe_svg_output')
                 if generated.stat().st_size>max_output_bytes:raise ValueError('output_too_large')
-                value=generated.read_text();validate(ET.fromstring(value))
-                dest=output_dir/'generated.svg';dest.write_text(value)
+                value=generated.read_text(encoding='utf-8');validate(ET.fromstring(value))
+                dest=output_dir/'generated.svg';dest.write_text(value, encoding='utf-8')
                 receipt.update(status='executed',svg=str(dest),sha256=hashlib.sha256(value.encode()).hexdigest())
         except Exception as exc:receipt['error']=str(exc)
-    (output_dir/'receipt.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2))
+    (output_dir/'receipt.json').write_text(json.dumps(receipt,ensure_ascii=False,indent=2), encoding='utf-8')
     return receipt

@@ -1,8 +1,8 @@
 const fs=require('fs');
-const {chromium}=require(process.env.PLUS_PLAYWRIGHT_MODULE);
+const browserRuntime = require('./browser.cjs');
 (async()=>{
  const input=JSON.parse(fs.readFileSync(0,'utf8'));
- const browser=await chromium.launch({executablePath:process.env.PLUS_CHROMIUM,headless:true});
+ const browser=await browserRuntime.launch();
  try {
   const context=await browser.newContext({javaScriptEnabled:false,viewport:{width:1600,height:1200}});
   await context.route('**/*',r=>r.abort());

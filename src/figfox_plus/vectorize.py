@@ -19,16 +19,21 @@ def vectorize_asset(asset,backend,out_dir):
                     filter_speckle=0,color_precision=8,layer_difference=4,
                     corner_threshold=60,length_threshold=3.5,max_iterations=10,
                     splice_threshold=30,path_precision=4)
-        result=subprocess.run([str(PLUS_ROOT/'.venv-vector/bin/python'),str(PLUS_ROOT/'runtime/vtracer_runner.py')],input=json.dumps(dict(source=asset['path'],target=str(path),parameters=params)),text=True,capture_output=True,timeout=60)
+        # The pinned vtracer venv uses a platform-dependent layout; fall back to the
+        # running interpreter so tracing is not lost on machines without that venv.
+        interpreter = next((str(candidate) for candidate in (
+            PLUS_ROOT/'.venv-vector/bin/python', PLUS_ROOT/'.venv-vector/Scripts/python.exe')
+            if candidate.exists()), sys.executable)
+        result=subprocess.run([interpreter,str(PLUS_ROOT/'runtime/vtracer_runner.py')],input=json.dumps(dict(source=asset['path'],target=str(path),parameters=params)),text=True,capture_output=True,timeout=60, encoding='utf-8')
         if result.returncode:raise ValueError('vtracer failed exit '+str(result.returncode)+': '+result.stderr[:500])
         version='0.6.12'
     elif backend=='imagetracerjs':
         params=dict(numberofcolors=32,ltres=1,qtres=1,pathomit=2)
         with Image.open(asset['path']) as im:
             im=im.convert('RGBA');payload={'image':{'width':im.width,'height':im.height,'data':list(im.tobytes())},'options':params}
-        result=subprocess.run([shutil.which('node') or 'node',str(PLUS_ROOT/'runtime/vectorize.cjs')],input=json.dumps(payload),text=True,capture_output=True,timeout=60)
+        result=subprocess.run([shutil.which('node') or 'node',str(PLUS_ROOT/'runtime/vectorize.cjs')],input=json.dumps(payload),text=True,capture_output=True,timeout=60, encoding='utf-8')
         if result.returncode:raise ValueError('imagetracer failed: '+result.stderr[:500])
-        path.write_text(result.stdout);version='1.2.6'
+        path.write_text(result.stdout, encoding='utf-8');version='1.2.6'
     elif backend=='pixelruns':
         # Small local assets only: preserve tiny noise/dash/glyph details as colored
         # run paths. This is not smooth Bezier fitting or semantic editability.

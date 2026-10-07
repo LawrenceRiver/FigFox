@@ -4,6 +4,12 @@
   "version": "0.1.0",
   "dependencies": {
     "imagetracerjs": "1.2.6",
-    "mathjax-full": "3.2.2"
+    "mathjax-full": "3.2.2",
+    "playwright": "1.62.1"
+  },
+  "overrides": {
+    "speech-rule-engine": {
+      "@xmldom/xmldom": "0.9.12"
+    }
   }
 }

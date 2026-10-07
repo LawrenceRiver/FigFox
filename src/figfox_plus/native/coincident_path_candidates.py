@@ -45,7 +45,7 @@ def build_coincident_path_candidates(svg_path, facts=None, *, distance_fraction=
     for value in (distance_fraction,distance_floor,length_ratio_limit):
         if isinstance(value,bool) or not isinstance(value,(int,float)) or not math.isfinite(value) or value<=0:raise ValueError('invalid threshold')
     if length_ratio_limit<1:raise ValueError('length ratio limit must be >=1')
-    try:root=ET.fromstring(Path(svg_path).read_text())
+    try:root=ET.fromstring(Path(svg_path).read_text(encoding='utf-8'))
     except ET.ParseError as exc:raise ValueError('Malformed SVG XML') from exc
     svg_namespace='http://www.w3.org/2000/svg'
     if root.tag not in ('svg','{'+svg_namespace+'}svg'):raise ValueError('Input must be an SVG document in the SVG namespace')
@@ -60,10 +60,8 @@ def build_coincident_path_candidates(svg_path, facts=None, *, distance_fraction=
         for attr in list(node.attrib):
             if attr.lower().startswith('on'):del node.attrib[attr]
     env=os.environ.copy()
-    env.setdefault('PLUS_PLAYWRIGHT_MODULE',str(Path.home()/'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'))
-    env.setdefault('PLUS_CHROMIUM',str(Path.home()/'Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell'))
     runtime=Path(__file__).resolve().parents[3]/'runtime/coincident-path-samples.cjs'
-    run=subprocess.run([shutil.which('node') or str(Path.home()/'.node/bin/node'),str(runtime)],input=json.dumps({'svg':ET.tostring(root,encoding='unicode'),'ids':list(eligible),'count':257}),text=True,capture_output=True,env=env,timeout=120)
+    run=subprocess.run([shutil.which('node') or 'node',str(runtime)],input=json.dumps({'svg':ET.tostring(root,encoding='unicode'),'ids':list(eligible),'count':257}),text=True,capture_output=True,env=env,timeout=120, encoding='utf-8')
     if run.returncode:raise ValueError('offline shaft sampling failed: '+run.stderr[:1000])
     samples=json.loads(run.stdout);resampled={};envelopes={r['object_id']:r['stroke_envelope'] for r in samples['records']}
     for record in samples['records']:

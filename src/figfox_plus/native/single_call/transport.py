@@ -29,7 +29,7 @@ def live_page(folder, reasoning='', content='', status='等待 API 返回'):
 def _read_stream(response, folder):
     reasoning=[];content=[];meta={};usage={};finish=None;tools_seen=False;done=False;last=0
     try:
-        with (folder/'events.jsonl').open('w') as events,(folder/'reasoning.txt').open('w') as rf,(folder/'content.partial.txt').open('w') as cf:
+        with (folder/'events.jsonl').open('w', encoding='utf-8') as events,(folder/'reasoning.txt').open('w', encoding='utf-8') as rf,(folder/'content.partial.txt').open('w', encoding='utf-8') as cf:
             for line in response:
                 line=line.decode('utf-8').strip()
                 if not line.startswith('data:'):continue

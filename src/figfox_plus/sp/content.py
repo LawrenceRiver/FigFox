@@ -37,7 +37,7 @@ def content_element(kind,data):
     if not isinstance(data.get('tex'),str) or not data['tex'].strip():
         raise ValueError('formula requires nonempty LaTeX')
     result=subprocess.run([shutil.which('node') or 'node',str(PLUS_ROOT/'runtime/formula.cjs')],
-        input=json.dumps({'tex':data['tex']}),text=True,capture_output=True,timeout=30)
+        input=json.dumps({'tex':data['tex']}),text=True,capture_output=True,timeout=30, encoding='utf-8')
     if result.returncode: raise ValueError('formula: '+result.stderr[:500])
     wrapper=ET.fromstring(result.stdout)
     el=next((e for e in wrapper.iter() if e.tag.split('}')[-1]=='svg'),None)
