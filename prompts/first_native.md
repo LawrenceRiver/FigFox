@@ -7,6 +7,8 @@ Every base frame must have an id, such as id="f01".
 
 [Output]
 Output only a single, complete, editable SVG containing base frames and the text, images, icons, and arrows from conduction drawing. Do not output anything else.
+Use well-formed XML: close every element, including nested SVG viewports; declare every namespace prefix you use; escape literal & and < in text and attributes; use numeric entities instead of HTML-only named entities. IDs must be unique and references must resolve.
+Preserve a complete visible drawing before adding optional SP, crop or color-sampling declarations. Use only documented fields and finite values derived from the original figure. Omit an unused optional field rather than filling it with a placeholder or an invented coordinate. Refer to SAM assets by their supplied IDs; do not reproduce their base64 data or tracing paths in the response.
 
 [Canvas]
 {{CANVAS}}
@@ -58,7 +60,11 @@ Only after full-figure SVG construction is completed should you apply establishe
 
 First clarify what the asset actually covers: delete the constructed SVG content and temporary placeholder boxes that are fully covered; retain true outer frames if the asset does not include them, deleting redundant frame constructions only when the asset fully encapsulates them. Uncovered text, arrows, borders, and details must be retained. If an existing group mixes elements to delete and elements to keep, separate them in SVG before replacement; do not delete the entire mixed group.
 
+Check the asset's full visible footprint, including nearby labels or symbols carried along with its main subject. A label or symbol appearing once in the original must remain visible once after replacement, whether represented by native text, paths, or embedded asset pixels. Preserve the actual symbol and meaning of each status badge or icon; similar colors or outlines do not justify substituting a number for a checkmark or reusing one generic symbol.
+
 Retain the complete initial SVG construction code in the output, and declare on an independent post-replacement image or g: data-plus-replaces="IDs_to_delete_space_separated", and for associated elements to keep: data-plus-keeps="IDs_to_keep_space_separated". If the deletion list includes true frames with data-plus-kind="frame", you must explicitly list them in data-plus-covered-frames="frame_IDs_fully_covered". Replacement nodes and deleted nodes must not contain each other. Specified initial constructions are deleted only after code binds the asset; do not use empty groups to fake drawn content.
+
+The same object ID must not appear in both replaces and keeps. Keeping a descendant of a replaced group is allowed only when its ancestor chain can be preserved; do not mark the whole deletion target as kept. If coverage is uncertain, retain the initial construction and omit that replacement declaration rather than submitting contradictory deletion instructions.
 
 Example: after <g id="draft-object">actual drawn construction</g>, output <g id="replacement" data-plus-replaces="draft-object" data-plus-keeps="adjacent-label" transform="translate(dx dy)"><image href="ACTUAL_ASSET_ID" x="ORIGINAL_X" y="ORIGINAL_Y" width="ORIGINAL_W" height="ORIGINAL_H"/></g>. All corresponding IDs and anchor points are determined by you from the original figure.
 
@@ -84,6 +90,9 @@ When SAM assets are absent, construct representable content with SVG/SP; for cha
 
 Check that these elements are not hidden by opacity=0, display:none, incorrect clipping, occlusions, or CSS style overrides; ensure fill on light text on dark backgrounds is not overridden by class fill rules. Submit the complete SVG only after actually filling all omissions; an element inventory in <desc> alone does not count as completed.
 
+[Source Dimensionality]
+Before constructing a cuboid or lattice, check the actual original pixels for adjacent projected faces and shared depth edges. Planar rectangles, divided matrices/tensor columns and 2D grids stay planar; a tensor name or shading alone does not imply depth. Preserve the projection and faces actually drawn, including horizontal front edges when present. If dimensionality is uncertain, keep the clearly visible planar structure instead of inventing hidden faces.
+
 [Plus Supplement: Preserve Native SVG, Do Not Convert to Scene]
 SVG coordinates follow native SVG semantics: rect x/y does not move child elements; only transform alters coordinate systems. Strive to use a unified viewBox preserving original figure proportions. Add data-plus-kind="frame" and stable IDs to all base frames and supplementary frames; assign stable IDs to semantic objects and groups as well. When expressing relationships, use text/names from the figure as subject and object, retaining rationales in <title> or <desc>.
 
@@ -95,5 +104,6 @@ SAM provides clues only; false positives need not be used. After host replacemen
 Accurately reproduce colors of background, frame surfaces, lines, text, and geometric faces from the original figure; do not substitute with uniform approximate palettes. Distinguish fill from stroke; note light-on-dark versus dark-on-light text, avoiding inherited styles overriding correct colors; gradients and opacity in the original figure cannot simply be treated as a single flat color.
 
 No pre-computed color palette or hex library is provided. For solid color regions requiring exact fidelity, declare on the corresponding SVG element: data-plus-color='{"fill":[x,y,w,h],"stroke":[x,y,w,h]}', including only attributes that require sampling. Coordinates [x,y,w,h] are identified by you from the clean original figure, referencing sampling ROIs on the original figure-not the new placement in SVG. Upon receiving the SVG, local OpenCV takes the dominant mode color within that ROI, writes it into the element's corresponding attributes and inline style, and records the measured hex code; no color-sampling code is required from you.
+For stroke sampling, locate a visible source line segment; its pixels must dominate the selected ROI. A nearby interior, background, corner gap or dashed gap is not stroke evidence. Keep a visible complete outline in the SVG before sampling, and omit an uncertain optional stroke sample. A sample that collapses an existing outline into its fill is deferred locally while the original outline is retained for review.
 
 Sampling ROIs must be chosen inside the target's solid interior, avoiding text, anti-aliased edges, shadows, and adjacent backgrounds. If a solid color sampling ROI cannot be determined for fine lines or fine text, construct them directly based on the original figure and leave them for subsequent verification; do not sample large surrounding backgrounds to cover them. Gradients should retain their gradient structure according to the original figure, rather than taking a single dominant color across the entire gradient region.

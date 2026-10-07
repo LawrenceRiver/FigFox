@@ -8,10 +8,12 @@ import hashlib
 import json
 from pathlib import Path
 import re
+from ..sp_v2 import box as tp_box
 from .compact import expand_observations
 from .evidence import validate_observations
 from .issues import validate_issues
 from .programs import execute_programs,validate_programs
+from .source_geometry import SourceGeometryUnverified
 from .report import write_report
 from ...state import write_json
 
@@ -82,19 +84,70 @@ def _program_shape(program):
 
 
 def _rejection(program,index,error):
-    return {'program_index':index,'program_id':program.get('id') if isinstance(program,dict) else None,
+    row = {'program_index':index,'program_id':program.get('id') if isinstance(program,dict) else None,
             'issue_ids':program.get('issue_ids',[]) if isinstance(program,dict) else [],
             'status':'rejected_before_execution','error':type(error).__name__+': '+str(error)}
+    if isinstance(error, SourceGeometryUnverified):
+        row.update(status='deferred_source_geometry', source_geometry_check=error.check,
+                   original_preserved=True, automatic_network_retry=False)
+    return row
 
 
 def filter_program_shapes(programs):
     if not isinstance(programs,list):raise ValueError('programs must be array')
     valid=[];rejected=[]
     for index,program in enumerate(programs):
-        try:_program_shape(program)
+        try:
+            program=deepcopy(program)
+            normalize_optional_fields(program)
+            _program_shape(program)
         except Exception as exc:rejected.append(_rejection(program,index,exc))
-        else:valid.append(deepcopy(program))
+        else:valid.append(program)
     return valid,rejected
+
+
+def normalize_optional_fields(program):
+    """Normalize absent options and bounded work limits; never supply visual parameters."""
+    if not isinstance(program,dict):return
+    changes=[]
+    for key in ('when','args','convergence','relations'):
+        if key in program and program[key] is None:
+            program.pop(key);changes.append({'kind':'omit_null_option','field':key})
+    if program.get('depends_on','missing') is None:
+        program['depends_on']=[]
+        changes.append({'kind':'null_dependencies','value':[]})
+    convergence=program.get('convergence')
+    if convergence is None and program.get('relations'):
+        convergence={};program['convergence']=convergence
+    if isinstance(convergence,dict):
+        for key in ('repairs','alignment_checks','relations'):
+            if convergence.get(key,'missing') is None:
+                convergence[key]=[]
+                changes.append({'kind':'null_optional_array','field':'convergence.'+key})
+        value=convergence.get('max_iterations')
+        limit=6 if value is None else max(2,min(8,value)) if type(value) is int and value>0 else value
+        if value!=limit:
+            convergence['max_iterations']=limit
+            changes.append({'kind':'bounded_runtime_limit','field':'convergence.max_iterations',
+                            'model_value':value,'host_value':limit})
+    def optional_anchors(operations,path):
+        if not isinstance(operations,list):return
+        for index,op in enumerate(operations):
+            if not isinstance(op,dict) or not isinstance(op.get('args'),dict):continue
+            args=op['args'];here=path+[index,'args']
+            for key in ('parent_id','before_id','after_id'):
+                if key in args and args[key] in (None,''):
+                    args.pop(key)
+                    changes.append({'kind':'omit_empty_anchor','field':here+[key]})
+            if op.get('source_location','missing') is None:
+                op.pop('source_location')
+                changes.append({'kind':'omit_null_option','field':path+[index,'source_location']})
+            if op.get('method')=='bp_program':optional_anchors(args.get('operations'),here+['operations'])
+    optional_anchors(program.get('args',{}).get('operations'),['args','operations'])
+    if isinstance(convergence,dict):
+        optional_anchors(convergence.get('repairs'),['convergence','repairs'])
+    if changes:
+        program.setdefault('host_normalizations',[]).extend(changes)
 
 
 def canonicalize_program(program):
@@ -116,6 +169,20 @@ def canonicalize_program(program):
         for index,op in enumerate(operations):
             if not isinstance(op,dict) or not isinstance(op.get('args'),dict):continue
             here=path+[index]
+            fields={'sp_replace':('measurement_viewport','target_tp'),
+                    'sp_photo':('target_tp',),'tp_fit':('target_tp',)}.get(op.get('method'),())
+            for field in fields:
+                value=op['args'].get(field)
+                if isinstance(value,list):
+                    if len(value)!=4:raise ValueError(field+' requires four edges in left,top,right,bottom order')
+                    # TP fields denote edges. source_crop remains original-pixel xywh.
+                    converted=dict(zip(('left','top','right','bottom'),value))
+                    if not any(isinstance(edge,dict) for edge in value):tp_box(converted)
+                    op['args'][field]=converted
+                    program.setdefault('host_normalizations',[]).append({
+                        'kind':'tp_edge_array_to_object','field':here+['args',field],
+                        'model_value':deepcopy(value),'host_value':deepcopy(converted),
+                        'basis':'declared TP edge order; values unchanged; no coordinates inferred'})
             if op.get('method')=='bp_program':visit(op['args'].get('operations'),here+['args','operations'])
             if op.get('method')!='sp_photo' or 'source_location' in op or 'source_location' in program:continue
             proof=op.get('crop_review',op['args'].get('crop_review'))
@@ -129,15 +196,18 @@ def canonicalize_program(program):
                 'destination_path':here+['source_location','description'],
                 'basis':'sp_photo crop_review is contractually original-only; existing evidence copied verbatim'})
     visit(args.get('operations'),['args','operations'])
+    visit(program.get('convergence',{}).get('repairs'),['convergence','repairs'])
 
 
-def select_valid_programs(programs,issues,images,prior_executed=None):
+def select_valid_programs(programs,issues,images,prior_executed=None, *, candidate_only=False):
     accepted=[];rejected=[]
     for index,raw in enumerate(programs):
         try:
-            _program_shape(raw)
             program=deepcopy(raw)
+            normalize_optional_fields(program)
+            _program_shape(program)
             canonicalize_program(program)
+            normalize_optional_fields(program)
             _program_shape(program)
             im=program.get('image_id')
             if len(images)==1 and im in images and program.get('base_revision')!=images[im]['revision']:
@@ -160,7 +230,7 @@ def select_valid_programs(programs,issues,images,prior_executed=None):
                         if op.get('method')=='bp_program' and isinstance(op.get('args'),dict):
                             normalize_measure_args(op['args'].get('operations'),op_path+['args','operations'])
                 normalize_measure_args(program.get('args',{}).get('operations'),['args','operations'])
-            validate_programs(accepted+[program],issues,images,prior_executed=prior_executed)
+            validate_programs(accepted+[program],issues,images,prior_executed=prior_executed,candidate_only=candidate_only)
         except Exception as exc:
             rejected.append(_rejection(raw,index,exc))
         else:accepted.append(program)
@@ -173,8 +243,8 @@ def run_saved_programs(task_dir,output_dir):
     out.mkdir(parents=True)
     write_json(out/'local-replay.json',{'source_task':str(root),'model_calls':0})
     try:
-        message=json.loads((root/'phase-1/message.json').read_text())
-        inputs=json.loads((root/'inputs.json').read_text());schedule=json.loads((root/'schedule.json').read_text())
+        message=json.loads((root/'phase-1/message.json').read_text(encoding='utf-8'))
+        inputs=json.loads((root/'inputs.json').read_text(encoding='utf-8'));schedule=json.loads((root/'schedule.json').read_text(encoding='utf-8'))
         from .orchestrator import _plan
         plan,_=_plan(message,schedule,review_only=False)
     except Exception as exc:
@@ -205,9 +275,12 @@ def run_saved_programs(task_dir,output_dir):
     rejected=shape_rejected+plan.get('_decode_rejections',[])+rejected
     write_json(out/'program-preflight.json',{'accepted':[p['id'] for p in accepted],'rejected':rejected})
     write_json(out/'normalized-programs.json',accepted)
+    from .candidates import source_candidates
+    candidates=source_candidates(plan['programs'],plan['issues'],images,out/'source-candidates',rejected)
     result=execute_programs(accepted,plan['issues'],images,out/'execution')
     result['rejected_programs']=rejected
+    result['repair_candidates']=candidates
     result.update(status='local_programs_executed_inspection_unverified',issues=plan['issues'],coverage=coverage,model_calls=0,visual_passed=False)
     write_json(out/'result.json',result)
-    write_report(out,inputs,plan['issues'],result['rcd'],coverage,output_images=result['images'])
+    write_report(out,inputs,plan['issues'],result['rcd']+rejected,coverage,output_images=result['images'],candidates=candidates)
     return result

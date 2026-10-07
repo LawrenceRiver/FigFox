@@ -134,6 +134,31 @@ def _repair(source, digest, *, substitute_object_bracket):
             return _unwrap_arguments(value, edits, digest)
 
 
+def _decode_string_controls(source, digest):
+    # strict=False only permits literal controls inside JSON strings. It still
+    # requires one complete value and rejects malformed escapes or trailing text.
+    value = json.loads(source, strict=False, parse_constant=_reject_constant)
+    edits = []
+    inside = escaped = False
+    for offset, character in enumerate(source):
+        if inside:
+            if escaped:
+                escaped = False
+            elif character == '\\':
+                escaped = True
+            elif character == '"':
+                inside = False
+            elif ord(character) < 32:
+                edits.append({'kind': 'unescaped_string_control', 'offset': offset,
+                              'before': character, 'after': json.dumps(character)[1:-1],
+                              'source_sha256': digest, 'decoded_string_preserved': True})
+        elif character == '"':
+            inside = True
+    if not edits or len(edits) > MAX_DELIMITER_CORRECTIONS:
+        raise ValueError('JSON string control correction limit exceeded')
+    return _unwrap_arguments(value, edits, digest)
+
+
 def parse_complete_json(source):
     """Return (decoded JSON value, edits) or reject the entire response.
 
@@ -146,6 +171,9 @@ def parse_complete_json(source):
     deleted. Truncation is not filled in. A sole-key arguments string is
     unwrapped once; its body must already be a complete JSON object, without
     any syntax repair.
+    A complete value containing unescaped string control characters can also
+    be decoded without changing any string value; each original offset is logged.
+    This fallback does not combine with structural delimiter repairs.
     """
     if not isinstance(source, str):
         raise ValueError('JSON source must be a string')
@@ -153,4 +181,7 @@ def parse_complete_json(source):
     try:
         return _repair(source, digest, substitute_object_bracket=True)
     except json.JSONDecodeError:
-        return _repair(source, digest, substitute_object_bracket=False)
+        try:
+            return _repair(source, digest, substitute_object_bracket=False)
+        except json.JSONDecodeError:
+            return _decode_string_controls(source, digest)

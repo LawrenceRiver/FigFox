@@ -6,6 +6,7 @@ private acceptance import or unverified geometric overlay is performed.
 import html
 import json
 from pathlib import Path
+import shutil
 from PIL import Image
 
 
@@ -43,11 +44,12 @@ def _receipt(record):
     status=record.get('status','unknown')
     changed=status in ('executed_changed','changed','changed_unverified') or record.get('changed') is True
     display='changed_unverified：代码已改变，视觉待核验' if changed else _esc(status)
-    fields={key:record[key] for key in ('step_id','operation','tool','method','actual_parameters','parameters','error','rollback','rolled_back','before_revision','after_revision') if key in record}
+    if status=='deferred_source_geometry':display='deferred_source_geometry：原图立体证据不足，未执行，保留当前对象'
+    fields={key:record[key] for key in ('step_id','operation','tool','method','actual_parameters','parameters','error','rollback','rolled_back','before_revision','after_revision','source_geometry_checks','source_geometry_check','original_preserved','automatic_followup_allowed') if key in record}
     return '<div class="receipt"><strong>'+display+'</strong><pre>'+_esc(fields)+'</pre></div>'
 
 
-def write_report(task_dir, inputs, issues, rcd, coverage=None, *, output_images=None):
+def write_report(task_dir, inputs, issues, rcd, coverage=None, *, output_images=None, candidates=None):
     """Write index.html from explicit inputs, issues, receipts and output images.
 
     output_images is {image_id: PNG path/asset or {png: path/asset}}. No external
@@ -72,12 +74,28 @@ def write_report(task_dir, inputs, issues, rcd, coverage=None, *, output_images=
         for side,value,label in [('original',info.get('original_png'),'原图'),('current',info.get('current_png',info.get('png')),'初始现图'),('final',output,'最终图')]:
             parts.append(_picture(value,assets,f'{number:03d}-{side}.png',label))
         parts.append('</div>')
+        for candidate_number, candidate in enumerate(candidates or []):
+            proposed = candidate.get('images', {}).get(image_id)
+            if not proposed:
+                continue
+            name = f'{number:03d}-candidate-{candidate_number:03d}'
+            parts.append('<details><summary>查看待确认候选（保留当前结果，未自动采用）</summary>'
+                         '<p class="notice">这是基于当时现图生成的独立候选，可能包含其他同期修复。'
+                         '可渲染不代表更准确，也不代表已通过视觉验收。</p>')
+            parts.append(_picture(proposed.get('png'), assets, name + '.png', '候选图：视觉待确认'))
+            svg = _path(proposed.get('svg'))
+            if svg is not None and svg.is_file():
+                shutil.copyfile(svg, assets / (name + '.svg'))
+                parts.append('<p><a href="report-assets/' + name + '.svg">下载候选 SVG</a></p>')
+            parts.append('<pre>' + _esc({key:candidate[key] for key in
+                ('step','object_id','program_ids','base_revisions','status','automatically_adopted','visual_acceptance')
+                if key in candidate}) + '</pre></details>')
         relevant=[issue for issue in issue_rows if issue.get('image_id')==image_id]
         if not relevant:parts.append('<p>没有提交检出问题；这不代表图片无问题。</p>')
         for issue in relevant:
             identity=issue.get('issue_id',issue.get('id','未命名问题'))
             parts.append('<article class="issue"><h3>'+_esc(identity)+' · '+_esc(issue.get('category',issue.get('type','')) )+'</h3>')
-            for key,label in [('semantic_location','语义定位'),('location','定位描述'),('description','问题描述'),('original_evidence','原图证据'),('current_evidence','现图证据'),('status','检出状态')]:
+            for key,label in [('semantic_location','语义定位'),('location','定位描述'),('description','问题描述'),('original_evidence','原图证据'),('current_evidence','现图证据'),('decision','检出判断'),('source_review','原图复核'),('status','检出状态')]:
                 if key in issue:parts.append('<p><b>'+label+'：</b>'+_esc(issue[key])+'</p>')
             matches=[]
             for index,record in enumerate(receipts):

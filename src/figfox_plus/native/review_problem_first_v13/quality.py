@@ -6,7 +6,7 @@ from ..single_call.executor import _resolve_id, _relation_report, _perform
 
 POLICY='''
 Highest priority: zero tolerance for E (Alignment and Symmetry) and F (Overlap and Overflow). Inspect each category once and then make the determination. Except for clearly intentional overlaps present in the original figure, any overlap, boundary contact, or overflow is an immediate defect; do not wait for secondary confirmation. Mark legal_overlap only when supported by source evidence. All confirmed E/F defects must have repair programs; providing unresolved_reason does not count as completion.
-E/F programs must include convergence={max_iterations:6,alignment_checks:[],repairs:[]}. E must have alignment_checks, each item being {id,target_ids,reference_ids,mode:center_x|center_y|left|right|top|bottom,tolerance:0.5,reference_evidence:semantic alignment relation from the original figure}; 0.5 allows only measurement error. F must have relations containing contain or separate, and including relevant neighbors. Each repairs item is {check_id,method:tp_align|tp_fit|tp_transform,target_ids,args}, with check_id matching the id of an alignment_check or relation. First execute original operations, then loop over the latest TP checks, executing the corresponding repair on failure; repairs that move elements by translation must use $measure/$calc to compute the latest delta, rather than iteratively accumulating fixed translations. Passing two consecutive times is required for measured convergence, with the second pass again including neighbors; non-convergence triggers rollback and marking as unresolved. Visual acceptance is still required.
+E/F programs must include convergence={max_iterations:6,alignment_checks:[],repairs:[]}. E must have alignment_checks, each item being {id,target_ids,reference_ids,mode:center_x|center_y|left|right|top|bottom,tolerance:0.5,reference_evidence:semantic alignment relation from the original figure}; 0.5 allows only measurement error. F must have relations containing contain or separate, and including relevant neighbors. Each repairs item is {check_id,method:tp_align|tp_fit|tp_transform,target_ids,args}, with check_id matching the id of an alignment_check or relation. Relations are checked on rendered tight bounding boxes, including stroke and arrowheads. Do not require separate between source-intended connector junctions or shared endpoints. With repairs:[], the initial operations must satisfy every declared relation; a check alone cannot correct geometry. First execute original operations, then loop over the latest TP checks, executing the corresponding repair on failure; repairs that move elements by translation must use $measure/$calc to compute the latest delta, rather than iteratively accumulating fixed translations. Passing two consecutive times is required for measured convergence, with the second pass again including neighbors; non-convergence triggers rollback and marking as unresolved. Visual acceptance is still required.
 If sp_photo appears, crop_review must have object_complete true, clipped false, full_object_xywh, and all four edges reviewed. source_crop must enclose the complete object. If the crop is incomplete, do not use sp_photo.
 '''
 
@@ -101,6 +101,12 @@ def validate_contract(p, selected, allowed, objects):
     for op in c.get('repairs',[]):
         if op.get('check_id') not in ids or op.get('method') not in ('tp_align','tp_fit','tp_transform') or not op.get('target_ids') or not set(op['target_ids'])<=objects or not isinstance(op.get('args'),dict):raise ValueError('invalid convergence repair scope')
 
+class ConvergenceError(ValueError):
+    def __init__(self,message,history):
+        super().__init__(message)
+        self.report={'status':'unresolved','history':history,'visual_acceptance':'pending'}
+
+
 def converge(root,p,issue,original,folder,aliases,results):
     c=p['convergence'];history=[];clean=0
     for iteration in range(c['max_iterations']):
@@ -126,6 +132,6 @@ def converge(root,p,issue,original,folder,aliases,results):
             if clean==2:return {'status':'measured_converged','history':history,'visual_acceptance':'pending'}
             continue
         clean=0;repairs=[op for op in c.get('repairs',[]) if op['check_id'] in failed]
-        if not repairs:raise ValueError('emergency unresolved: '+','.join(failed))
+        if not repairs:raise ConvergenceError('emergency unresolved: '+','.join(failed),history)
         for j,op in enumerate(repairs):_perform(root,op,issue,original,folder/f'loop-{iteration}-{j}',aliases,results)
-    raise ValueError('emergency unresolved: convergence limit reached')
+    raise ConvergenceError('emergency unresolved: convergence limit reached',history)

@@ -1,5 +1,65 @@
-"""Lossless table encoding of repeated measured fields; never prune evidence."""
+"""Lossless default tables; reduced model views require explicit opt-in."""
 from copy import deepcopy
+import hashlib
+import xml.etree.ElementTree as ET
+
+
+def compact_traced_assets(svg):
+    """Elide anonymous tracing internals in model context only, never in the SVG file."""
+    root=ET.fromstring(svg)
+    indexed={node:'@node:'+str(index) for index,node in enumerate(list(root.iter())[1:])}
+    omitted=set()
+    for node in list(root.iter()):
+        if indexed.get(node) in omitted:continue
+        generated=node.get('data-plus-generated-asset')=='true' or node.get('desc','').startswith('Created with imagetracer.js')
+        children=list(node.iter())[1:]
+        if not generated or any(child.get('id') for child in children):continue
+        source=ET.tostring(node,encoding='unicode')
+        if len(children)<100 and len(source)<20000:continue
+        omitted.update(indexed[child] for child in children)
+        node[:]=[]
+        node.set('data-context-asset-sha256',hashlib.sha256(source.encode()).hexdigest())
+        node.set('data-context-omitted-nodes',str(len(children)))
+    return (ET.tostring(root,encoding='unicode') if omitted else svg),omitted
+
+
+def model_line_facts(facts, max_pairs=None, *, omit_ids=()):
+    """Keep all facts by default; callers may explicitly request a reduced view."""
+    selected=deepcopy(facts)
+    if omit_ids:
+        omitted=set(omit_ids)
+        original_count=len(selected.get('objects',[]))
+        for key in ('objects','unsupported'):
+            selected[key]=[r for r in selected.get(key,[]) if r.get('object_id') not in omitted]
+        selected['relation_candidates']=[r for r in selected.get('relation_candidates',[]) if not omitted.intersection(r.get('object_ids',[]))]
+        selected['opaque_asset_evidence']={
+            'omitted_object_count':original_count-len(selected['objects']),
+            'reason':'Anonymous vector tracing internals are opaque assets, not addressable arrow objects. Use the owning SVG group, measured bounds and rendered images.',
+            'full_evidence':'current-line-facts.json and inputs/current SVG retain all geometry locally; generated code must read INPUT_SVG, never reconstruct omitted paths from this view.'}
+    pairs=selected.get('relation_candidates',[])
+    if max_pairs is not None and len(pairs)>max_pairs:
+        by_object={}
+        ordered=sorted(range(len(pairs)),key=lambda i:(min(pairs[i].get('endpoint_distances',{'distance':float('inf')}).values()),i))
+        for index in ordered:
+            for object_id in pairs[index].get('object_ids',[]):
+                by_object.setdefault(object_id,[]).append(index)
+        chosen=set()
+        depth=0
+        while len(chosen)<max_pairs:
+            added=False
+            for candidates in by_object.values():
+                if depth<len(candidates):
+                    chosen.add(candidates[depth]);added=True
+                    if len(chosen)==max_pairs:break
+            if not added:break
+            depth+=1
+        selected['relation_candidates']=[pairs[i] for i in sorted(chosen)]
+        selected['relation_candidate_selection']={
+            'total_count':len(pairs),'included_count':len(chosen),'omitted_count':len(pairs)-len(chosen),
+            'policy':'nearest endpoints per object, round-robin; all object geometry retained',
+            'full_evidence':'current-line-facts.json (local audit file, not included in model context)',
+            'warning':'Omitted pairs are not evidence of absence; inspect original/current images and all object geometry.'}
+    return compact_line_facts(selected)
 
 
 def compact_line_facts(facts):

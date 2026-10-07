@@ -6,6 +6,16 @@ Contains no figure-specific observations, target coordinates or acceptance data.
 
 def build_execution_contract():
     return {
+        'coordinate_boxes': {
+            'TP_fields': ['target_tp', 'measurement_viewport'],
+            'canonical': {'left':'finite number or resolved numeric expression',
+                          'top':'finite number or resolved numeric expression',
+                          'right':'finite number or resolved numeric expression',
+                          'bottom':'finite number or resolved numeric expression'},
+            'edge_array_alias': '[left,top,right,bottom], mapped to the same four fields without changing values',
+            'positive_extent': 'right > left and bottom > top after resolving expressions; missing or invalid geometry is rejected',
+            'source_ROIs': 'source_crop, full_object_xywh and sample_colors.regions use original-pixel [x,y,width,height]; never reinterpret them as TP edges',
+        },
         'generated_python': {
             'INPUT_SVG': 'str: filesystem path to the current input SVG file, not XML source text',
             'OUTPUT_SVG': 'str: filesystem path where the resulting complete SVG must be written',

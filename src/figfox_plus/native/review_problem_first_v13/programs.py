@@ -1,6 +1,6 @@
 """Validated, resumable local transactions shared by both constructor phases."""
 from copy import deepcopy
-import fcntl
+from figfox_plus import file_lock as fcntl
 import hashlib
 import json
 import math
@@ -8,12 +8,14 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 from .scene import digest, descendants, assert_target_scope, write_checkpoint
 from .sandbox import run_code
-from .quality import crop_gate, validate_contract, converge
+from .quality import crop_gate, validate_contract, converge, ConvergenceError
+from .source_geometry import check_source_geometry, SourceGeometryUnverified
 from ..document import validate
 from ..single_call.executor import _perform as _base_perform, _resolve_id, _relation_report
 from ..tp_alarms import compare_reports
 from ..tight_tp import measure_tight
 from ..single_call.contract import MUTATIONS
+from ...state import write_json
 
 
 def _has_expression(value):
@@ -44,7 +46,7 @@ def _perform(root,step,issue,original,folder,aliases,results):
 
 
 def _atomic_json(path,data):
-    tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(data,ensure_ascii=False,indent=2));tmp.replace(path)
+    write_json(path,data)
 
 
 def _id_list(value):
@@ -126,29 +128,72 @@ def _walk_operations(operations):
             yield from _walk_operations(operation['args']['operations'])
 
 
+class _LiveSVGIds:
+    """Preflight identity lifetimes in operation order, without changing geometry."""
+    def __init__(self, root):
+        self.root = deepcopy(root)
+
+    @property
+    def nodes(self):
+        return {n.get('id'):n for n in self.root.iter() if n.get('id')}
+
+    @property
+    def ids(self):
+        return set(self.nodes)
+
+    def remove(self, ids):
+        by = self.nodes
+        if not set(ids) <= set(by):raise ValueError('removal references unavailable SVG ID')
+        parents = {child:parent for parent in self.root.iter() for child in parent}
+        for oid in ids:
+            node = by[oid]
+            if node is self.root:raise ValueError('cannot remove the SVG root')
+            if node in set(self.root.iter()):parents[node].remove(node)
+
+    def add(self, operation):
+        args = operation['args']
+        try:fragment = ET.fromstring('<g>'+args.get('svg','')+'</g>')
+        except ET.ParseError as exc:raise ValueError('invalid insertion fragment') from exc
+        fresh = [n.get('id') for n in list(fragment.iter())[1:]]
+        if not fresh or any(not i for i in fresh) or len(set(fresh))!=len(fresh) or set(fresh)&self.ids:
+            raise ValueError('new SVG IDs must be explicit and unique')
+        by = self.nodes
+        parent_id = args.get('parent_id')
+        if parent_id == '@parent':
+            parents = {child:parent for parent in self.root.iter() for child in parent}
+            selected = {parents.get(by[oid]) for oid in operation['target_ids']}
+            if len(selected)!=1 or None in selected:raise ValueError('parent anchor requires one common existing container')
+            parent = selected.pop()
+        else:
+            if parent_id not in by:raise ValueError('insertion parent is unavailable')
+            parent = by[parent_id]
+        if parent.tag.rsplit('}',1)[-1] not in ('g','svg'):raise ValueError('BP parent must be a g or svg container')
+        parent.extend(list(fragment))
+        return set(fresh)
+
+
 def _compile_typed_scope(program,root):
     existing={n.get('id') for n in root.iter() if n.get('id')}
+    live=_LiveSVGIds(root)
     created=set();writes=set();sources=[]
     def visit(operations,path):
         if not isinstance(operations,list):raise ValueError('typed operations must be array')
         for index,op in enumerate(operations):
             if not isinstance(op,dict) or not isinstance(op.get('target_ids'),list) or any(not isinstance(t,str) for t in op['target_ids']):raise ValueError('typed target_ids must be explicit strings')
             ids=set(op['target_ids']);where=path+[index]
-            if not ids<=existing|created:raise ValueError('typed operation references unknown or not-yet-created ID')
+            if not ids<=live.ids:raise ValueError('typed operation references unknown, removed or not-yet-created ID')
             if op.get('method') in MUTATIONS|{'bp_program'}:
                 writes.update(ids);sources.append({'path':where+['target_ids'],'target_ids':list(op['target_ids'])})
             args=op.get('args',{})
             if not isinstance(args,dict):raise ValueError('typed args must be object')
             for anchor in ('parent_id','before_id','after_id'):
-                if anchor in args and args[anchor]!='@parent' and args[anchor] not in existing|created:raise ValueError('typed anchor references unknown or not-yet-created ID')
+                if anchor in args and args[anchor]!='@parent' and args[anchor] not in live.ids:raise ValueError('typed anchor references unknown, removed or not-yet-created ID')
             if op.get('method') not in MUTATIONS|{'sample_colors','measure','check_tp','bp_program'}:raise ValueError('unsupported typed module method')
-            if op.get('method')!='bp_program' and not _measurement_references(args)<=existing|created:raise ValueError('measurement references unknown or not-yet-created ID')
+            if op.get('method')!='bp_program' and not _measurement_references(args)<=live.ids:raise ValueError('measurement references unknown, removed or not-yet-created ID')
             if op.get('method')=='bp_program':visit(args.get('operations'),where+['args','operations'])
             if op.get('method')=='bp_add':
-                fragment=ET.fromstring('<g>'+args.get('svg','')+'</g>')
-                fresh=[n.get('id') for n in list(fragment.iter())[1:]]
-                if not fresh or any(not i for i in fresh) or len(set(fresh))!=len(fresh) or set(fresh)&(existing|created):raise ValueError('new SVG IDs must be explicit and unique')
-                created.update(fresh)
+                created.update(live.add(op))
+            elif op.get('method')=='bp_remove':live.remove(op['target_ids'])
     visit(program.get('args',{}).get('operations',[]),['args','operations'])
     visit(program.get('convergence',{}).get('repairs',[]),['convergence','repairs'])
     return {'existing_write_ids':sorted(writes&existing),'created_write_ids':sorted(writes&created),'created_ids':sorted(created),'sources':sources,'basis':'explicit typed mutation target_ids only'}
@@ -179,7 +224,10 @@ def _prior_executed(records,images,roots):
         objects.update(t for t in raw if t not in existing)
         deps=record.get('depends_on') or []
         if not isinstance(deps,list) or any(not isinstance(d,str) for d in deps):raise ValueError('prior executed dependencies must be ids')
-        seen[pid]={'id':pid,'image_id':im,'_ancestors':set(deps),'_prior':True}
+        ancestors=set(deps)
+        for dep in deps:
+            if dep in seen and seen[dep]['image_id']==im:ancestors.update(seen[dep]['_ancestors'])
+        seen[pid]={'id':pid,'image_id':im,'_ancestors':ancestors,'_prior':True}
         touched.setdefault(im,[]).append((pid,objects))
     return seen,touched
 
@@ -221,11 +269,31 @@ def _has_arrow(program):
     return walk(program.get('args', {}).get('operations'))
 
 
-def validate_programs(programs,issues,images,prior_executed=None):
+def _source_checks(program, selected, original, candidate_only):
+    solids = [issue for issue in selected if issue.get('category') == 'S1']
+    # Explicit counterevidence remains binding even in a candidate branch.
+    if any(issue.get('decision') == 'preserved'
+           or (isinstance(issue.get('source_review'), dict)
+               and issue['source_review'].get('classification') == 'planar') for issue in solids):
+        raise SourceGeometryUnverified('source review identifies a preserved planar object')
+    try:
+        if any(issue.get('decision') != 'confirmed'
+               or (isinstance(issue.get('source_review'), dict)
+                   and issue['source_review'].get('classification') == 'uncertain') for issue in solids):
+            raise SourceGeometryUnverified('source dimensionality is uncertain')
+        return check_source_geometry(program, original,
+            require_source=bool(solids) and (program.get('route') != 'module_program' or not _has_cuboid_replace(program)))
+    except SourceGeometryUnverified as error:
+        if not candidate_only or error.check.get('candidate_allowed') is False:
+            raise
+        return [{**error.check, 'candidate_only': True}]
+
+
+def validate_programs(programs,issues,images,prior_executed=None, *, candidate_only=False):
     if not isinstance(programs,list) or not isinstance(issues,list):raise ValueError('programs and issues must be arrays')
     issue_map={i['id']:i for i in issues};last_order={};scope={};issue_sets={}
     result_ids={p.get('id') for p in programs if isinstance(p,dict) and isinstance(p.get('id'),str)}
-    roots={im:ET.fromstring(Path(v['svg']).read_text()) for im,v in images.items()}
+    roots={im:ET.fromstring(Path(v['svg']).read_text(encoding='utf-8')) for im,v in images.items()}
     seen,touched=_prior_executed(prior_executed,images,roots)
     for im,v in images.items():
         if digest(v['svg'])!=v['revision']:raise ValueError('input SVG revision changed')
@@ -245,12 +313,10 @@ def validate_programs(programs,issues,images,prior_executed=None):
         selected=[issue_map[r] for r in refs]
         categories=[i.get('category') for i in selected]
         if any(c not in ('A','B','C','D','E','F','S1','S2','S3','S4') for c in categories):raise ValueError('unknown issue category')
-        if 'S1' in categories and not _has_cuboid_replace(p):raise ValueError('regular solid must be replaced with SP cuboid or lattice')
+        source_checks = _source_checks(p, selected, images[im]['original'], candidate_only)
+        if source_checks:p['source_geometry_checks'] = source_checks
+        else:p.pop('source_geometry_checks', None)
         if 'D' in categories and not _has_arrow(p):raise ValueError('arrow must be rebuilt with SP arrow')
-        if set(categories) in ({'D'}, {'S2'}):
-            p['depends_on']=[]
-            p.pop('when',None)
-            deps=[]
         ranks=[ord(c)-ord('A') for c in categories if len(c)==1]
         if ranks:
             # Inspection priority is distinct from execution dependency order.
@@ -303,7 +369,7 @@ def validate_programs(programs,issues,images,prior_executed=None):
         elif p.get('route')=='module_program':
             ops=p.get('args',{}).get('operations')
             if not isinstance(ops,list) or (not ops and not p.get('convergence',{}).get('repairs')):raise ValueError('module operations or convergence repairs required')
-            created=set();existing={n.get('id') for n in roots[im].iter() if n.get('id')}
+            created=set();live=_LiveSVGIds(roots[im])
             for op in _walk_operations(ops):
                 crop_gate(op,images[im]['original'])
                 operation_id=op.get('id')
@@ -328,12 +394,8 @@ def validate_programs(programs,issues,images,prior_executed=None):
                         if len(selected_parents)!=1 or None in selected_parents:raise ValueError('parent anchor requires one common existing container')
                     elif value is not None and value not in objects|created:raise ValueError('insertion anchor outside scope')
                 if op['method']=='bp_add':
-                    try:fragment=ET.fromstring('<g>'+op['args'].get('svg','')+'</g>')
-                    except ET.ParseError as exc:raise ValueError('invalid insertion fragment') from exc
-                    nodes=list(fragment.iter())[1:];fresh=[n.get('id') for n in nodes]
-                    if not fresh or any(not i for i in fresh) or len(set(fresh))!=len(fresh) or set(fresh)&(existing|created):
-                        raise ValueError('new SVG IDs must be explicit and unique')
-                    created.update(fresh)
+                    created.update(live.add(op))
+                elif op['method']=='bp_remove':live.remove(op['target_ids'])
                 if op['method'] in ('sp_photo','sample_colors'):
                     location=op.get('source_location',p.get('source_location',{}))
                     if not isinstance(location,dict) or location.get('basis')!='original_semantic' or not isinstance(location.get('description'),str) or not location['description'].strip():raise ValueError('independent original semantic location required')
@@ -347,19 +409,21 @@ def validate_programs(programs,issues,images,prior_executed=None):
     return issue_sets
 
 
-def execute_programs(programs,issues,images,folder,prior_executed=None):
+def execute_programs(programs,issues,images,folder,prior_executed=None, *, candidate_only=False):
     folder=Path(folder).resolve();folder.mkdir(parents=True,exist_ok=True)
-    with (folder/'execution.lock').open('a') as lock:
+    with (folder/'execution.lock').open('a', encoding='utf-8') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
-        return _execute(programs,issues,images,folder,prior_executed)
+        return _execute(programs,issues,images,folder,prior_executed,candidate_only=candidate_only)
 
 
-def _execute(programs,issues,images,folder,prior_executed=None):
-    selected=validate_programs(programs,issues,images,prior_executed=prior_executed)
-    signature=hashlib.sha256(json.dumps({'programs':programs,'issues':issues,'images':images},sort_keys=True).encode()).hexdigest()
+def _execute(programs,issues,images,folder,prior_executed=None, *, candidate_only=False):
+    selected=validate_programs(programs,issues,images,prior_executed=prior_executed,candidate_only=candidate_only)
+    identity={'programs':programs,'issues':issues,'images':images}
+    if candidate_only:identity['candidate_only']=True
+    signature=hashlib.sha256(json.dumps(identity,sort_keys=True).encode()).hexdigest()
     path=folder/'state.json'
     if path.exists():
-        state=json.loads(path.read_text())
+        state=json.loads(path.read_text(encoding='utf-8'))
         if state['signature']!=signature:raise ValueError('cannot resume a different execution plan')
         for data in state['images'].values():
             if digest(data['svg'])!=data['revision']:raise ValueError('checkpoint modified')
@@ -375,6 +439,11 @@ def _execute(programs,issues,images,folder,prior_executed=None):
         current=state['images'][im]
         record={'program_id':pid,'issue_ids':p['issue_ids'],'image_id':im,'phase':p['phase'],'route':p['route'],'before_revision':current['revision'],'after_revision':current['revision'],'target_ids':p['target_ids'],'rcd_predescription':p.get('rcd_predescription',''),'visual_acceptance':'pending','read_only_references':p.get('read_only_references',[]),'compiled_scope':deepcopy(p.get('compiled_scope')),'effective_target_ids':_execution_targets(p)}
         record['host_normalizations']=deepcopy(p.get('host_normalizations',[]))
+        record['depends_on']=deepcopy(p.get('depends_on',[]))
+        if p.get('source_geometry_checks'):
+            record['source_geometry_checks']=deepcopy(p['source_geometry_checks'])
+        if candidate_only:
+            record['candidate_only']=True
         trigger=p.get('when');trigger_matched=True
         if trigger:
             actual=done[trigger['program']]['status'];trigger_matched=actual==trigger['status']
@@ -385,7 +454,7 @@ def _execute(programs,issues,images,folder,prior_executed=None):
             record.update(status='blocked',error='dependency did not execute')
         else:
             try:
-                before=ET.fromstring(Path(current['svg']).read_text());trial=deepcopy(before)
+                before=ET.fromstring(Path(current['svg']).read_text(encoding='utf-8'));trial=deepcopy(before)
                 local_results=deepcopy(state['results'])
                 aliases=deepcopy(state['aliases'][im]);work=folder/f'program-{index:04d}';work.mkdir(exist_ok=True)
                 rules=p.get('relations',[])
@@ -403,7 +472,7 @@ def _execute(programs,issues,images,folder,prior_executed=None):
                     result=run_code(p['source_code'],current['svg'],attempt,current_tp=tp_snapshot)
                     record['tool_receipt']=result
                     if result.get('status')!='executed':raise ValueError(result.get('error','sandbox execution failed'))
-                    trial=ET.fromstring(Path(result['svg']).read_text());assert_target_scope(before,trial,[_resolve_id(t,aliases) for t in p['target_ids']])
+                    trial=ET.fromstring(Path(result['svg']).read_text(encoding='utf-8'));assert_target_scope(before,trial,[_resolve_id(t,aliases) for t in p['target_ids']])
                     old_images={n.get('href') or n.get('{http://www.w3.org/1999/xlink}href') for n in before.iter() if n.tag.rsplit('}',1)[-1]=='image'}
                     if any((n.get('href') or n.get('{http://www.w3.org/1999/xlink}href')) not in old_images for n in trial.iter() if n.tag.rsplit('}',1)[-1]=='image'):
                         raise ValueError('generated raster insertion requires audited sp_photo route')
@@ -445,6 +514,7 @@ def _execute(programs,issues,images,folder,prior_executed=None):
                 state['images'][im]=checkpoint;state['aliases'][im]=aliases;local_results[pid]=result;state['results']=local_results
             except Exception as exc:
                 record.update(status='failed',error=str(exc),rolled_back=True)
+                if isinstance(exc,ConvergenceError):record['convergence']=exc.report
         state['rcd'].append(record);done[pid]=record;_atomic_json(path,state)
     # Earlier convergence can be invalidated by later edits. Audit the final scene.
     for p in programs:
@@ -452,12 +522,14 @@ def _execute(programs,issues,images,folder,prior_executed=None):
         if rec['status'] not in ('changed_unverified','executed_no_change') or not any(q['category'] in ('E','F') for q in selected[p['id']]):continue
         audit=deepcopy(p);audit['convergence']['repairs']=[];audit['convergence']['max_iterations']=2
         try:
-            final_root=ET.fromstring(Path(state['images'][p['image_id']]['svg']).read_text())
+            final_root=ET.fromstring(Path(state['images'][p['image_id']]['svg']).read_text(encoding='utf-8'))
             rec['final_scene_check']=converge(final_root,audit,{},images[p['image_id']]['original'],folder/'final-audit',state['aliases'][p['image_id']],{})
         except Exception as exc:
             rec['final_scene_check']={'status':'unresolved','error':str(exc)}
+            if isinstance(exc,ConvergenceError):rec['final_scene_check'].update(exc.report)
             rec['convergence']['status']='invalidated_by_later_edit'
     _atomic_json(path,state)
     result={k:state[k] for k in ('images','rcd','aliases')};result['visual_acceptance']='pending'
+    if candidate_only:result['candidate_only']=True
     _atomic_json(folder/'result.json',result)
     return result

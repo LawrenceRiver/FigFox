@@ -3,7 +3,7 @@ import base64
 import io
 from PIL import Image
 from copy import deepcopy
-import fcntl
+from figfox_plus import file_lock as fcntl
 import hashlib
 import json
 import re
@@ -17,13 +17,14 @@ from .inspection_contract import expand_observations, inspection_regions, audit_
 from .methods import build_method_pack
 from .transport import send
 from .problem_first import PROMPT as PROBLEM_PROMPT, SCHEMA as PROBLEM_SCHEMA, category_itinerary, expand_category_sweeps, audit_problem_first
-from .context_tables import compact_line_facts
+from .context_tables import model_line_facts
 from .input_encoding import compact_category_itinerary
 from .lean_inspection import PROMPT as PROBLEM_PROMPT, REPAIR_PROMPT, build_schema as compact_schema, audit as audit_compact
 from ..strict_review_envelope import build_schema, decode_envelope
 from ..current_line_facts import build_line_facts
 from ..review_photo_previews import collect_photo_previews
 from .quality import POLICY
+from .issues import effective_issue_rows, source_pending_ids
 from .diagnostics import build_diagnostics
 from ..tight_tp import measure_tight
 import xml.etree.ElementTree as ET
@@ -32,8 +33,8 @@ TOOLS=[{'type':'function','function':{'name':'execute_review_program','descripti
  'parameters':{'type':'object','properties':{'observations':{'type':'array','items':{'type':'object'}},'observation_rows':{'type':'array','items':{'type':'object'}},'observation_evidence':{'type':'object'},'issues':{'type':'array','items':{'type':'object'}},'programs':{'type':'array','items':{'type':'object'}},'prior_issue_reviews':{'type':'array','items':{'type':'object'}}},'required':['issues','programs'],'additionalProperties':False}}}]
 PROMPT=PROBLEM_PROMPT + '\n' + '''Each item in issues is {id,image_id,category,description,original_evidence,current_evidence,target_ids,neighbor_ids,decision:confirmed|uncertain|preserved|duplicate}. In the first request, programs is fixed as []. Tool arguments must be JSON with compact_category_sweeps, issues, and programs; do not wrap them in an outer arguments layer. Do not output other_sweep.
 '''
-PROGRAM_CONTRACT='''Write programs only in the second request. Each item in programs is {id,issue_ids,image_id,base_revision,phase:preconstructor|reconstructor,route:module_program|generated_python,target_ids,depends_on:[],rcd_predescription,args?,source_code?,relations?,convergence?,when?}. For module programs, args={operations:[{method,target_ids,args}]}. Methods follow the provided method_pack. Dynamic programs use INPUT_SVG and OUTPUT_SVG paths, performing tree.write after ET.parse. Operations on the same object must declare depends_on; otherwise depends_on must be empty []. Write F, E, B, S1, D, and S2 programs together. For F, use predicate; min_gap for separate and padding for contain must both be positive numbers. For E, when endpoints or lengths are incorrect, modify endpoints or lengths; do not merely translate to the center. For B, repair only compilation failures, subscript/superscript errors, and compilation errors in symbols such as radicals. Do not modify text that differs in font but displays clearly. For S1, if unsegmented use SP cuboid; if segmented or division lines are malformed use SP lattice; do not retain the original polylines; do not hand-draw polygons. The main face must be slanted, and side faces must remain visible. For D, use sp_replace with kind as arrow; the arrowhead tip and the shaft endpoint must coincide, arrowhead dimensions must match the original figure in pixels, and depends_on must be []. For S2, where small patches are completely inconsistent with the original figure, use sp_photo to crop from the original figure. In relations, subject_id and object_id must be existing object IDs in the current SVG, or use container_ids and target_ids; do not use neighbor_ids. sp_photo requires crop_review with object_complete true, clipped false, full_object_xywh, edges_reviewed with all four edge entries set to true, and evidence, along with source_location.basis set to original_semantic. Programs failing pre-checks will not execute.
-''' + POLICY
+PROGRAM_CONTRACT='''Write programs only in the second request. Each item in programs is {id,issue_ids,image_id,base_revision,phase:preconstructor|reconstructor,route:module_program|generated_python,target_ids,depends_on:[],rcd_predescription,args?,source_code?,relations?,convergence?,when?}. For module programs, args={operations:[{method,target_ids,args}]}. Methods follow the provided method_pack. Dynamic programs use INPUT_SVG and OUTPUT_SVG paths, performing tree.write after ET.parse. For every category, programs mutating the same SVG object or overlapping group/child scopes must declare depends_on on the preceding program; independent scopes use []. This includes adding an outline to a group whose children another program changes. Write F, E, B, S1, D, and S2 programs together. For F, use predicate; min_gap for separate and padding for contain must both be positive numbers. For E, when endpoints or lengths are incorrect, modify endpoints or lengths; do not merely translate to the center. For B, repair only compilation failures, subscript/superscript errors, and compilation errors in symbols such as radicals. Do not modify text that differs in font but displays clearly. For S1, preserve the actual source projection and supply independent original-pixel evidence under the policy below. Supported SP, native and scoped generated_python routes remain available; unsupported pixel evidence preserves the object and records the unresolved reason in the existing precheck. Explicit planar source counterevidence remains binding. For D, use sp_replace with kind as arrow; the arrowhead tip and the shaft endpoint must coincide, arrowhead dimensions must match the original figure in pixels; dependencies follow the same scope rule as every other category. For S2, restore an existing structural boundary with bp_patch and original-pixel stroke/style evidence while preserving children; use sp_photo only for a small missing or completely inconsistent image patch. TP target_tp and measurement_viewport use {left,top,right,bottom}, or the equivalent edge array [left,top,right,bottom]; source_crop remains original-pixel [x,y,width,height]. In relations, subject_id and object_id must be existing object IDs in the current SVG, or use container_ids and target_ids; do not use neighbor_ids. sp_photo requires crop_review with object_complete true, clipped false, full_object_xywh, edges_reviewed with all four edge entries set to true, and evidence, along with source_location.basis set to original_semantic. Programs failing structural pre-checks will not execute.
+''' + POLICY + '\n' + '''Generated Python mutations must stay within the issue target_ids and their descendants. Neighbor IDs are context, not additional replacement targets; use the existing typed module operations for source-justified neighboring label or frame adjustments. Never expand issue targets or alter evidence merely to pass scope validation.'''
 TOOLS[0]['function']['parameters']['properties']={
  **PROBLEM_SCHEMA,
  'issues':{'type':'array','items':{'type':'object'}},
@@ -95,9 +96,10 @@ def prepare(bundle, task_dir, *, upstream_arrow_specs=None):
         shutil.copyfile(a['path'],dest);a['path']=str(dest)
     inputs=validate_bundle(inputs);schedule=make_schedule(inputs);methods=build_method_pack()
     write_json(root/'inputs.json',inputs);write_json(root/'schedule.json',schedule);write_json(root/'methods.json',methods)
-    diagnostic_pack={}
+    diagnostic_pack={};context_svgs={}
     for key,im in inputs['images'].items():
-        measured=measure_tight(ET.fromstring(Path(im['current_svg']['path']).read_text()))
+        context_svgs[key]=Path(im['current_svg']['path']).read_text(encoding='utf-8')
+        measured=measure_tight(ET.fromstring(Path(im['current_svg']['path']).read_text(encoding='utf-8')))
         measured['current_revision']=im['current_revision']
         tp_file=root/(key+'-full-tight-tp.json');write_json(tp_file,measured)
         report=build_diagnostics(im['current_svg']['path'],tp_file)
@@ -138,10 +140,10 @@ def prepare(bundle, task_dir, *, upstream_arrow_specs=None):
     write_json(root/'upstream-arrow-assets.json',arrow_assets)
 
     content=[{'type':'text','text':json.dumps({'input_inventory':{str(i):v for i,v in enumerate(['original Crop','current SVG','current PNG','original PNG','current Crop','current TP','SP library','BP library','Q list','Ask_data contract','Reconstructor interface','Preconstructor interface'],1)},
-       'schedule':schedule,'upstream_arrow_evidence':arrow_context,'current_line_facts':{k:compact_line_facts(v) for k,v in line_pack.items()},'current_line_alignment_candidates':alignment_pack,'current_coincident_path_candidates':coincident_pack,'current_diagnostics':diagnostic_pack,'method_pack':methods,'program_contract':PROMPT},ensure_ascii=False)}]
+       'schedule':schedule,'upstream_arrow_evidence':arrow_context,'current_line_facts':{k:model_line_facts(v) for k,v in line_pack.items()},'current_line_alignment_candidates':alignment_pack,'current_coincident_path_candidates':coincident_pack,'current_diagnostics':diagnostic_pack,'method_pack':methods,'program_contract':PROGRAM_CONTRACT,'context_asset_policy':'Complete SVG vector paths and line facts are retained. Embedded resource references identify immutable assets shown in the supplied original/current PNGs. Generated code must read INPUT_SVG and preserve unrelated content.'},ensure_ascii=False)}]
     for key,im in inputs['images'].items():
         content.append({'type':'text','text':json.dumps({'image_id':key,'revision':im['current_revision'],
-          'current_svg':Path(im['current_svg']['path']).read_text(),'current_tp':json.loads(Path(im['current_tp']['path']).read_text()),
+          'current_svg':context_svgs[key],'current_tp':json.loads(Path(im['current_tp']['path']).read_text(encoding='utf-8')),
           'crop_pairs':[{k:v for k,v in p.items() if k not in ('original_asset','current_asset')} for p in im['crop_pairs']]},ensure_ascii=False)})
         content.extend(_image(im['original_png']));content.extend(_image(im['current_png']))
         for pair in im['crop_pairs']:
@@ -168,15 +170,16 @@ def prepare(bundle, task_dir, *, upstream_arrow_specs=None):
         upstream_arrow_assets=arrow_assets,upstream_arrow_context=arrow_context)
     messages.append({'role':'user','content':'This is the first request; identify defects only, with programs as []. Inspect the full-image original-vs-current comparison, the current SVG, and the 1/2 Crop pairs once each. For regular cuboids and inconsistent patches, perform a separate pass over the 1/2 Crop pairs for each. Record urgent alignment and overlap issues upon observation. Do not restate the reasoning.'})
     write_json(root/'image-presentation-audit.json',presentation_audit)
-    # Transport-size guard, not a claim about provider token capacity. Never drop evidence.
-    if len(json.dumps(messages,ensure_ascii=False).encode())>100_000_000:
-        raise ValueError('input_capacity_exceeded: prepared messages exceed 100MB; no evidence discarded')
+    # Prepared formatting is not the wire body. Admission happens in transport
+    # after lossless formatting compaction, against documented provider limits.
+    write_json(root/'prepared-capacity.json',{'formatted_message_bytes':len(json.dumps(messages,ensure_ascii=False).encode()),
+        'semantic_fields_removed':[], 'model_request_sent':False})
     write_json(root/'messages.json',messages)
     write_json(root/'frozen.json',{p.name:_hash(p) for p in [root/'inputs.json',root/'schedule.json',root/'methods.json',root/'messages.json',root/'current-diagnostics.json',root/'upstream-arrow-provenance.json',root/'upstream-arrow-assets.json',root/'current-line-facts.json',root/'current-line-alignment-candidates.json',root/'current-coincident-path-candidates.json',root/'image-presentation-audit.json']})
     return inputs
 
 
-def _plan(message, schedule=None, *, review_only=False):
+def _plan(message, schedule=None, *, review_only=False, repair_context=None):
     calls=message.get('tool_calls',[])
     channel='tool_calls';call_id=None
     if calls:
@@ -196,6 +199,17 @@ def _plan(message, schedule=None, *, review_only=False):
     from ..review_json_syntax import parse_complete_json
     plan,syntax_edits=parse_complete_json(source)
     if not isinstance(plan,dict):raise ValueError('plan must be object')
+    issues_binding=None
+    if 'issues' not in plan and repair_context is not None:
+        # Only a repair continuation can reuse host-bound discovery evidence.
+        # Explicit empty/invalid fields and discovery omissions remain binding.
+        previous=deepcopy(repair_context['issues'])
+        if not isinstance(previous,list):raise ValueError('missing issues')
+        from .issues import validate_issues
+        validate_issues(deepcopy(previous),[],repair_context['images'])
+        plan['issues']=previous
+        issues_binding={'source':'previous_discovery','issue_ids':[i['id'] for i in previous],
+                        'image_revisions':{k:v['revision'] for k,v in repair_context['images'].items()}}
     wrapped=any(isinstance(items,list) and any(isinstance(item,dict) and key in item for item in items) for items,key in ((plan.get('programs'),'program_json'),(plan.get('prior_issue_reviews'),'review_json')))
     legacy='category_checks' not in plan and not wrapped
     if legacy:
@@ -204,15 +218,17 @@ def _plan(message, schedule=None, *, review_only=False):
         actual_review_only=not bool({'compact_category_sweeps','category_sweeps','other_sweep'} & plan.keys())
         contract='legacy_tool' if channel=='tool_calls' else 'legacy_content'
         if actual_review_only:contract+='_review_only'
-        if actual_review_only!=review_only:
+        if actual_review_only and not review_only:
             plan['_inspection_envelope_error']={'error':'response mode mismatch','expected_review_only':review_only,'actual_review_only':actual_review_only}
             plan['_raw_inspection_envelope']={key:deepcopy(plan[key]) for key in ('category_sweeps','other_sweep') if key in plan}
             contract+='_inspection_mode_error'
     else:
-        raw_plan=plan
+        # Host records already passed semantic validation; do not reshape them
+        # into the provider's strict issue schema or invent its placeholder fields.
+        raw_plan=dict(plan,issues=[]) if issues_binding else plan
         actual_review_only=not bool({'category_checks','other_sweep'} & raw_plan.keys())
         try:
-            if actual_review_only!=review_only:raise ValueError('response mode mismatch')
+            if actual_review_only and not review_only:raise ValueError('response mode mismatch')
             if schedule is not None:plan=decode_envelope(raw_plan,inspection_regions(schedule))
             contract='strict_review_only' if review_only else 'strict_full'
         except ValueError as exc:
@@ -224,10 +240,38 @@ def _plan(message, schedule=None, *, review_only=False):
             plan['_inspection_envelope_error']={'error':str(exc),'expected_review_only':review_only,'actual_review_only':actual_review_only}
             plan['_raw_inspection_envelope']={key:deepcopy(raw_plan[key]) for key in ('category_checks','other_sweep') if key in raw_plan}
             contract='execution_only_after_envelope_error'
+    if issues_binding:plan['issues']=previous
     for key in ('issues','programs'):
         if not isinstance(plan.get(key),list):raise ValueError('missing '+key)
+    # Relation IDs are audit labels, not geometry. Supply missing unreferenced
+    # labels deterministically, but never guess the target of a check_id link.
+    for program in plan['programs']:
+        if not isinstance(program,dict):continue
+        relations=program.get('relations',[])
+        convergence=program.get('convergence') or {}
+        if not isinstance(relations,list) or not isinstance(convergence,dict):continue
+        checks=convergence.get('alignment_checks') or []
+        repairs=convergence.get('repairs') or []
+        if not isinstance(checks,list) or not isinstance(repairs,list):continue
+        known={r['id'] for r in relations+checks if isinstance(r,dict) and isinstance(r.get('id'),str)}
+        check_only=[r for r in repairs if isinstance(r,dict) and set(r)=={'check_id'} and r['check_id'] in known]
+        if check_only:
+            repairs=[r for r in repairs if r not in check_only]
+            convergence['repairs']=repairs
+            program.setdefault('host_normalizations',[]).extend(
+                {'kind':'remove_check_only_repair_reference','check_id':r['check_id']} for r in check_only)
+        if any(not isinstance(r,dict) or r.get('check_id') not in known for r in repairs):continue
+        for index,relation in enumerate(relations):
+            if not isinstance(relation,dict) or 'id' in relation:continue
+            digest=hashlib.sha256(json.dumps(relation,sort_keys=True).encode()).hexdigest()[:12]
+            ident=f'auto_relation_{index}_{digest}'
+            while ident in known:ident+='x'
+            relation['id']=ident;known.add(ident)
+            program.setdefault('host_normalizations',[]).append(
+                {'kind':'unreferenced_relation_id','relation_index':index,'assigned_id':ident})
     plan['_syntax_edits']=syntax_edits
     plan['_response_metadata']={'response_channel':channel,'contract':contract,'source_sha256':hashlib.sha256(raw_source.encode()).hexdigest()}
+    if issues_binding:plan['_response_metadata']['issues_binding']=issues_binding
     return plan,call_id
 
 
@@ -250,27 +294,28 @@ def _review_audit(plan,prior,images):
     return {'status':'records_valid','visual_acceptance':'not_assessed'}
 
 
-def run(task_dir, *, sender=None, request_limit=2):
+def run(task_dir, *, sender=None, request_limit=2, initial_candidates=None):
     if type(request_limit)!=int or request_limit not in (1,2):raise ValueError('request_limit must be 1 or 2')
     root=Path(task_dir).resolve()
-    with (root/'pipeline.lock').open('a') as lock:
+    with (root/'pipeline.lock').open('a', encoding='utf-8') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
-        for name,digest in json.loads((root/'frozen.json').read_text()).items():
+        for name,digest in json.loads((root/'frozen.json').read_text(encoding='utf-8')).items():
             if _hash(root/name)!=digest:raise ValueError('frozen input modified: '+name)
-        for asset in json.loads((root/'upstream-arrow-assets.json').read_text()):
+        for asset in json.loads((root/'upstream-arrow-assets.json').read_text(encoding='utf-8')):
             if _hash(asset['path'])!=asset['sha256']:raise ValueError('frozen upstream arrow asset modified')
-        inputs=validate_bundle(json.loads((root/'inputs.json').read_text()))
+        inputs=validate_bundle(json.loads((root/'inputs.json').read_text(encoding='utf-8')))
         if len(inputs['images']) != 1:raise ValueError('one_image_per_review')
-        if build_method_pack()['version_hash']!=json.loads((root/'methods.json').read_text())['version_hash']:
+        if build_method_pack()['version_hash']!=json.loads((root/'methods.json').read_text(encoding='utf-8'))['version_hash']:
             raise ValueError('method_library_changed_since_prepare')
         result_file=root/'result.json'
-        if result_file.exists():return json.loads(result_file.read_text())
-        messages=json.loads((root/'messages.json').read_text());schedule=json.loads((root/'schedule.json').read_text())
+        if result_file.exists():return json.loads(result_file.read_text(encoding='utf-8'))
+        messages=json.loads((root/'messages.json').read_text(encoding='utf-8'));schedule=json.loads((root/'schedule.json').read_text(encoding='utf-8'))
         images={k:{'svg':i['current_svg']['path'],'png':i['current_png']['path'],'original':i['original_png']['path'],'revision':i['current_revision']} for k,i in inputs['images'].items()}
         all_issues=[];all_rcd=[];all_rejected=[];review_audits=[];coverage={'records_complete':False,'visual_acceptance':'not_assessed'};first_issues=[]
+        repair_candidates=list(initial_candidates or [])
         for n in range(request_limit):
             turn=root/f'phase-{n+1}';turn.mkdir(exist_ok=True)
-            if (turn/'message.json').exists():message=json.loads((turn/'message.json').read_text())
+            if (turn/'message.json').exists():message=json.loads((turn/'message.json').read_text(encoding='utf-8'))
             else:
                 message=(sender or send)(messages,_tools_for(schedule,review_only=n>0 and coverage.get('records_complete',False)),root,request_limit=request_limit)
                 write_json(turn/'message.json',message)
@@ -279,7 +324,8 @@ def run(task_dir, *, sender=None, request_limit=2):
             raw_calls=message.get('tool_calls',[])
             call_id=raw_calls[0].get('id') if len(raw_calls)==1 else None;plan=None
             try:
-                plan,call_id=_plan(message,schedule,review_only=expected_review_only)
+                plan,call_id=_plan(message,schedule,review_only=expected_review_only,
+                                  repair_context={'issues':first_issues,'images':images} if n>0 else None)
                 write_json(turn/'raw-plan.json',plan)
                 from ..review_result_id_normalization import normalize_unreferenced_result_ids
                 plan,id_audit=normalize_unreferenced_result_ids(plan)
@@ -338,6 +384,8 @@ def run(task_dir, *, sender=None, request_limit=2):
             write_json(turn/'feedback.json',feedback)
             found=[i for i in first_issues if i.get('decision') in ('confirmed','uncertain')]
             if n==0 and n+1<request_limit and found:
+                # Preserve upstream continuation, including original reasoning,
+                # tool identities and every whole-image/crop evidence message.
                 messages.append(message)
                 note=json.dumps({'issues':found},ensure_ascii=False)
                 if raw_calls:
@@ -347,19 +395,31 @@ def run(task_dir, *, sender=None, request_limit=2):
         result={'status':('inspection_incomplete' if not coverage.get('records_complete') else 'execution_failed' if feedback['execution_result'].get('error') else 'partially_executed' if any(r.get('status') in ('failed','blocked') for r in all_rcd) else 'visual_review_pending'),
                 'images':images,'issues':all_issues,'rcd':all_rcd,'coverage':coverage,'visual_passed':False,
                 'rejected_programs':all_rejected,'review_audits':review_audits,'request_limit':request_limit,'final_model_visual_review':False,'last_feedback':feedback}
-        critical=[i for i in all_issues if i.get('decision')=='confirmed' and i.get('category') in ('E','F','B','A','S1','D','S2')]
-        critical_map={i['id']:i['category'] for i in critical}
-        converged={q for r in all_rcd if r.get('status') in ('changed_unverified','executed_no_change') for q in r['issue_ids'] if critical_map.get(q) not in ('E','F') or r.get('final_scene_check',{}).get('status')=='measured_converged'}
-        result['emergency_unresolved']=[i['id'] for i in critical if i['id'] not in converged]
+        result['effective_issues']=effective_issue_rows(all_issues)
+        result['repair_candidates']=repair_candidates
+        critical=[i for i in result['effective_issues'] if i.get('decision')=='confirmed' and i.get('category') in ('E','F','B','A','S1','D','S2')]
+        from .followup import _landed
+        result['emergency_unresolved']=[i['id'] for i in critical if not _landed(i,all_rcd+all_rejected)]
         if result['emergency_unresolved']:result['status']='emergency_unresolved'
+        result['source_geometry_pending']=source_pending_ids(result['effective_issues'], all_rejected)
+        if (result['source_geometry_pending'] and result['status'] in ('visual_review_pending','emergency_unresolved')
+                and set(result['emergency_unresolved']) <= set(result['source_geometry_pending'])):
+            result['status']='source_verification_pending'
         write_json(result_file,result)
         from .report import write_report
-        write_report(root,inputs,all_issues,all_rcd,coverage,output_images=images)
         from .followup import run_followup
         follow_dir=root.parent/(root.name+'-followup')
         try:
             result['followup']=run_followup(root,follow_dir,sender=sender)
         except Exception as exc:
             result['followup']={'opened':True,'status':'failed','error':type(exc).__name__+': '+str(exc)}
+        from .followup import reconcile_followup
+        follow_state=follow_dir/'execution/state.json'
+        if result['followup'].get('status')=='completed':
+            state=json.loads(follow_state.read_text(encoding='utf-8')) if follow_state.is_file() else {'images':images,'rcd':[]}
+            result=reconcile_followup(result,state)
         write_json(result_file,result)
+        write_report(root,inputs,result['effective_issues'],
+                     list(result.get('effective_rcd',result['rcd']))+result['rejected_programs'],
+                     coverage,output_images=result['images'],candidates=result['repair_candidates'])
         return result
