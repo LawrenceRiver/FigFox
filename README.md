@@ -21,6 +21,13 @@ This folder holds the code that runs that path, and the prompts the program read
 
 像素被改过，只说明程序执行了。这不等于图已经看过、可以接受。
 
+### 后段容量检查
+
+线条事实表会把重复属性存一次，用列字典引用；每条记录、坐标和数值都保留。
+每次 DeepSeek 请求（包括续接的推理和工具内容）在发送前估算容量，输出默认预留 64,000 token。续接时，对完全相同的历史输入使用接口已返回的真实用量，只估算新增内容；空间不足时停止，保留初次生成结果，不压缩输出预算、不截断证据、不自动重试。
+每轮的 `model-turns/*/context-budget.json` 保存估算及决定。它不是提供方的精确 tokenizer，图片成本和文本成本都是估算，仍以接口实际计数为准。
+默认上下文窗口 1,048,576 来自当前部署实际错误响应；更换部署时，通过 `FLOW_DS_CONTEXT_TOKENS` 设置真实窗口。`FLOW_DS_MAX_OUTPUT_TOKENS` 可调整期望输出预留。
+
 ```mermaid
 flowchart TD
   svg[5.5 生成 SVG]

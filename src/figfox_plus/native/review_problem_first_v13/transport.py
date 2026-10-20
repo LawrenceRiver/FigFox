@@ -15,8 +15,25 @@ from uuid import uuid4
 from ...providers import load_key, request_once
 from ...state import write_json
 from ..single_call.transport import _open_http, live_page
+from .context_budget import plan_context
 
 MARKER = '.review-task.json'
+
+
+def _provider_prefixes(root, model):
+    prefixes=[]
+    for response in (root/'model-turns').glob('*/response.json'):
+        request=response.parent/'request.json'
+        if not request.exists():continue
+        raw=json.loads(response.read_text())
+        body=json.loads(request.read_text())['body']
+        if body.get('model')!=model:continue
+        # Only accepted complete turns may supply a calibration baseline.
+        try:_message(raw)
+        except (ValueError,KeyError,TypeError):continue
+        prefixes.append({'messages':body['messages'],'tools':body.get('tools',[]),
+                         'prompt_tokens':raw.get('usage',{}).get('prompt_tokens')})
+    return prefixes
 
 
 def _read_stream(response, folder):
@@ -96,8 +113,10 @@ def send(messages, tools, task_dir, *, send_http=None, request_limit=2):
             if record.get('root')!=str(root):raise ValueError('task root marker mismatch')
             if record.get('request_limit')!=request_limit:raise ValueError('task request limit cannot change')
         else:write_json(marker,{'root':str(root),'request_limit':request_limit})
-        body={'model':os.environ.get('FLOW_DS_MODEL','deepseek-flash'),
-              'messages':messages,'max_tokens':393216,'thinking':{'type':'enabled'},
+        model=os.environ.get('FLOW_DS_MODEL','deepseek-flash')
+        budget=plan_context(messages,tools,provider_prefixes=_provider_prefixes(root,model))
+        body={'model':model,
+              'messages':messages,'max_tokens':budget['max_output_tokens'],'thinking':{'type':'enabled'},
               'reasoning_effort':'high','stream':True,'stream_options':{'include_usage':True}}
         if tools:body.update(tools=tools,tool_choice='auto')
         encoded=json.dumps(body,ensure_ascii=False,sort_keys=True).encode('utf-8')
@@ -105,6 +124,10 @@ def send(messages, tools, task_dir, *, send_http=None, request_limit=2):
         folder=root/'model-turns'/token;folder.mkdir(parents=True,exist_ok=True)
         if (folder/'response.json').exists():return _message(json.loads((folder/'response.json').read_text()))
         if (folder/'attempt.json').exists():raise ValueError('this turn was already attempted; no retry')
+        write_json(folder/'context-budget.json',budget)
+        if budget['status']=='blocked_before_http':
+            raise ValueError('input_capacity_exceeded: local estimate leaves insufficient output capacity; '
+                             'no HTTP attempt made, all evidence and saved initial SVG retained; see '+str(folder/'context-budget.json'))
         endpoint='https://api.deepseek.com/chat/completions'
         write_json(folder/'request.json',{'endpoint':endpoint,'body':body})
         def once():
