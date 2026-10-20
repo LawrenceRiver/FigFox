@@ -74,12 +74,6 @@ def first(original,run,send=call_gpt55,sam=None):
         if not isinstance(samples,dict) or not samples or set(samples)-{'fill','stroke'}:raise ValueError('invalid color sampling declaration')
         for attribute,roi in samples.items():
             op={'id':'color_'+oid+'_'+attribute,'issue_id':'first_color_'+oid,'action':'sample_color','target_ids':[oid],'args':{'source_crop':roi,'attribute':attribute}}
-            current=nodes(root)[oid]
-            styles=dict(x.split(':',1) for x in current.get('style','').split(';') if ':' in x)
-            stroke=styles.get('stroke',current.get('stroke'))
-            if attribute=='stroke' and current.get('data-plus-kind')=='frame' and stroke not in (None,'','none','inherit','initial','unset'):
-                color_log.append({'id':op['id'],'action':'sample_color','status':'skipped','reason':'preserve_frame_outline_first_pass','result':{'color':stroke,'source_crop':roi}})
-                continue
             root,log=execute(root,[op],[{'id':op['issue_id'],'target_ids':[oid]}],original,run/'first-color-tools');color_log.extend(log)
         nodes(root)[oid].attrib.pop('data-plus-color',None)
     from .sam_replace import apply_replacements
