@@ -14,7 +14,7 @@ This folder holds the code that runs that path, and the prompts the program read
 
 下面四步都在「运行」那一条 `chain` 命令里，按这个顺序做完。
 
-1. **第一次构图。** 原图先交给本地 SAM 服务切出图块、图标和箭头，再由 GPT-5.5 写成 SVG。提示词在 `prompts/first_native.md`。
+1. **第一次构图。** GPT-5.5按原图写SVG；SAM开启时先取得图块、图标和箭头证据。P4构图规则来源为`prompts/first_native.md`，能力条件和共同质量规则见`docs/capabilities.md`。
 2. **1/2 Crop。** 每个底框向左右上下各扩出自身宽、高的一半，裁在画布里面。同一块区域的原图和当前渲染并排放在一起。实现是 `src/figfox_plus/pack.py` 里的 `half_crop`，由 `src/figfox_plus/native/pack.py` 写成成对图片。检查阶段不会重新裁这些图。
 3. **两次请求检查并修复。** 第一次只列问题，第二次为已经列出的问题写修复程序。类别是交叠、对齐、字体公式、规则立方体、箭头，以及和原图完全不符的小贴块。代码在 `src/figfox_plus/native/review_problem_first_v13/`。
 4. **回执之后最多再请求一次。** 交叠、对齐、几何，或者已经检出但没落地的照片，才会打开这一次。已经落地的不再请求。这一次可以查看事先备好的全部 1/2 Crop，每一对第一张是原图、第二张是当前渲染，每条问题选定包含它的那一对再写程序。写完执行一次就停。
@@ -31,47 +31,45 @@ This folder holds the code that runs that path, and the prompts the program read
 ```mermaid
 flowchart TD
   svg[5.5 生成 SVG]
-  look[整页看一次：原图对当前渲染]
-  rerun[再跑一次 5.5]
   crop[1/2 Crop]
   find[第一次请求：只列问题]
   fix[第二次请求：写程序并执行]
   receipt[回执]
   extra[再开一次：只处理回执里没收口的必须项]
   stop[停止]
-  svg --> look
-  look -->|一整块物件一起漂了| rerun --> crop
-  look -->|没有这种大错| crop
+  svg --> crop
   crop --> find --> fix --> receipt
   receipt -->|交叠、对齐、几何或已检出的照片没收口| extra --> stop
   receipt -->|这些都已落地| stop
 ```
 
-![流程](flow.svg)
-
-图里「整页漂移就再跑一次 5.5」那一支还没有接进代码。回执这一支已经接上，实现在 `src/figfox_plus/native/review_problem_first_v13/followup.py`。
+回执续修实现在`src/figfox_plus/native/review_problem_first_v13/followup.py`；每次整链只调用一次GPT-5.5，不因视觉结果自动重跑。
 
 ## 准备
 
-需要 Python 3、Node，以及 Playwright 能启动的 Chromium。
+当前代码沙箱支持macOS的`sandbox-exec`，建议使用Python 3.12、Node和项目锁定的Playwright/Chromium。Python 3.14的vtracer兼容限制及已有浏览器、独立矢量Python的配置见[运行时安装](docs/runtime-setup.md)。
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-npm install
+npm ci
+npx playwright install chromium
 ```
 
-密钥放在环境变量里，不要写进仓库：
+密钥放在环境变量里，或用`FLOW_ENV_FILE=/path/to/existing.env`显式读取现有文件，不要提交到仓库；不会读取父目录或历史脚本里的密钥：
 
 - `OPENAI_API_KEY`：第一次构图
 - `DEEPSEEK_API_KEY`：两次检查
-- `PLUS_PLAYWRIGHT_MODULE`：本机 Playwright 模块路径
-- `PLUS_CHROMIUM`：本机 Chromium 可执行文件
+- `FLOW_ENV_FILE`：可选，现有凭据文件路径；进程环境变量优先
+- `PLUS_PLAYWRIGHT_MODULE`、`PLUS_CHROMIUM`：可选，覆盖项目Playwright或其浏览器路径
+- `PLUS_VECTOR_PYTHON`：可选，运行vtracer的Python；默认当前Python
+
+第一步默认`gpt-5.5`、`medium`、最多32,768输出token，分别可用`FLOW_OPENAI_MODEL`、`FLOW_OPENAI_REASONING_EFFORT`、`FLOW_OPENAI_MAX_OUTPUT_TOKENS`显式配置；修复阶段默认`deepseek-flash`、`high`。失败或截断不自动重试，保留请求、原始流和已知/未知用量。
 
 ## SAM3
 
-`chain` 会请求本机 `http://127.0.0.1:18080` 的 `POST /v1/segment/proposals`。权重不在这个仓库里，所以要先在外面把服务听起来。根路径返回 404 只说明端口有进程，不能代替 `/health`。
+SAM默认开启，会请求本机`http://127.0.0.1:18080`的`POST /v1/segment/proposals`；可用`--sam-service-url`指定已有服务。权重不在仓库内。服务失败会在付费构图前退出，不会静默关闭SAM或切换付费服务；明确使用`--sam off`时不访问SAM服务或缓存。根路径404不能代替`/health`。
 
 这条链路只发三类提示词：`picture`、`icon`、`arrow`。`adapters/raw_evidence.py` 里还有框、立方体等类别，`src/figfox_plus/sam.py` 不会把它们发给 SAM。
 
@@ -111,13 +109,11 @@ uv run drawai setup local \
 curl http://127.0.0.1:18080/health
 ```
 
-没有本地权重、改走 fal.ai 时，另设 `FAL_KEY`，再用本仓库的云适配器。它的默认端口是 8765，要改到 18080：
+可选的fal.ai适配器会产生外部费用，需自行明确选择、配置`FAL_KEY`及安装`flask`、`fal-client`、`httpx`；链路不会自动启用它。默认端口8765，下例改为18080：
 
 ```bash
 PORT=18080 python scripts/fal_sam3_adapter.py
 ```
-
-这条还需要 `flask`、`fal-client`、`httpx`。
 
 去背景用的 RMBG2 权重不在本文件夹里，`chain` 不依赖它。相关代码在 `runtime/rmbg_runner.py`。
 
@@ -130,19 +126,31 @@ PYTHONPATH=src python -m figfox_plus chain \
   --image /path/to/figure.png \
   --id unet \
   --out /path/to/new-run \
+  --sam on --code-methods on \
   --rerun-authorization your-one-time-string
 ```
 
 跑之前先满足这些条件：
 
-- 上一节的 Python、Node、Playwright 和密钥已经就绪。SAM 服务在 `http://127.0.0.1:18080` 听着。
+- Python、Node、Playwright和密钥已就绪；SAM-on还需真实SAM服务。
 - `--image` 是原图 PNG，文件必须存在。
 - `--id` 是短名字，只用字母、数字、`-` 和 `_`，例如 `unet`。
 - `--out` 必须是一个还不存在的目录。结果写在这个目录里，不写回本文件夹。
 - `--rerun-authorization` 是一次性字符串。同一张原图再次交给 GPT-5.5 时，换一个新的。
 
-命令正常结束时，终端打印 `--out` 的路径，同目录有 `chain-timing.jsonl`。这表示这条链路跑完了。像素被改过，只说明程序执行了，不等于图已经看过、可以接受。
+命令正常结束时，`chain-result.json`记录最终提交图与revision，`final/scene.svg`和`final/preview.png`包括已提交的条件续修结果；`chain-timing.jsonl`记录阶段时间。执行完成仍保持`visual_passed:false`，需要按原图另做视觉验收。
+
+### 两项能力消融
+
+| 条件 | 参数 | 含义 |
+|---|---|---|
+| S0C0 | `--sam off --code-methods off` | 原生SVG与模型自写stdlib Python修复 |
+| S1C0 | `--sam on --code-methods off` | 上述路径加真实SAM素材/证据 |
+| S0C1 | `--sam off --code-methods on` | 外接SVGplus/TP/裁图/取色等方法可用，无SAM |
+| S1C1 | `--sam on --code-methods on` | 完整正式条件，计入四格一次 |
+
+共同质量规则固定，能力清单、工具说明和SAM证据随条件改变，因此不声称完整提示词字节相同。代码off仍保留相同渲染、安全/写域和只读几何验收，禁用模型可调用的外接方法及自动修复。`invocation-trace.jsonl`记录真实调用；方法开启但未使用也如实记录。边界见[能力合同](docs/capabilities.md)。
+
+[历史四格规划器](docs/ablation-plan.md)只验证80个历史ID/源图哈希并生成320项计划，不启动付费调用。全量运行还需真实SAM条件及单独冻结的累计费用预算；单图`chain`命令不提供跨320格的费用总控。
 
 `chain` 是这条已经接上的整链。`python -m figfox_plus run` 仍是旧入口，默认还会走另一套单次修复，不要拿它代替上面这条命令。
-
-图里「整页漂移就再跑一次 5.5」那一支还没有接进这条命令。命令开头会调用一次 GPT-5.5，不会因为整页漂移再调用第二次。

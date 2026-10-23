@@ -89,8 +89,16 @@ def _first(original,run,send,sam,policy,sam_service_url):
         from .sam_board import build_boards
         boards=invoke('sam_intervention',build_boards,original,pictures,run/'first-sam-boards')
         prompt+='\nSAM pictures: '+public(pictures)+'\nSAM arrows (head status and dimensions evidence only): '+public(arrows)
-        prompt+='\nAttachment order: original, SAM pictures, SAM arrows, annotated overview. Asset mapping: '+json.dumps({a['id']:a['source_id'] for a in boards['pictures']})
+        prompt+='\nAsset mapping: '+json.dumps({a['id']:a['source_id'] for a in boards['pictures']})
         prompt+='\nFor confirmed SAM references use real asset IDs, preserve source_crop x/y/width/height and position with a shared outer group transform. Construct actual visible content first, then declare data-plus-replaces="space-separated construction IDs" and data-plus-keeps="uncovered IDs" on an independent replacement image/group. If true frames are completely covered, list their IDs in data-plus-covered-frames. Replacement and replaced nodes must not contain each other. False positive or uncertain assets need not be used.'
+    if not pictures and not arrows and not boards['images']:
+        prompt+='\nAttachment order: original only; no SAM crops or overview board are attached.'
+    else:
+        attachments = ['original']
+        attachments += ['SAM picture crop '+a['id'] for a in pictures]
+        attachments += ['SAM arrow crop '+a['id'] for a in arrows]
+        attachments += ['annotated overview '+p.name for p in boards['images']]
+        prompt+='\nActual attachment manifest (in order): '+json.dumps(attachments)
     response=send(prompt,[Path(original)]+[Path(a['path']) for a in pictures+arrows]+boards['images'],run/'gpt55','A-derived native SVG first pass')
     root=parse(response)
     validate_svg_capabilities(root,policy)
