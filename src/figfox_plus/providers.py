@@ -46,10 +46,16 @@ def request_once(role,request_id,ledger,send,budget=None,image_hash=None,rerun_a
 def load_key(name):
     value=os.environ.get(name,'').strip()
     if value:return value
-    file=PLUS_ROOT.parent/'.env.local'
-    if file.exists():
+    explicit=os.environ.get('FLOW_ENV_FILE')
+    files=([Path(explicit).expanduser()] if explicit else [])+[PLUS_ROOT/'.env.local',PLUS_ROOT/'.env']
+    for file in files:
+        if not file.is_file():continue
         for line in file.read_text().splitlines():
-            if line.startswith(name+'='):return line.split('=',1)[1].strip().strip('"').strip("'")
+            line=line.strip()
+            if line.startswith('export '):line=line[7:].strip()
+            if line.startswith(name+'='):
+                value=line.split('=',1)[1].strip().strip('"').strip("'").strip()
+                if value:return value
     raise ValueError('missing credential '+name)
 
 
@@ -82,35 +88,76 @@ def call_deepseek(prompt,images,run_dir,purpose):
         raise
 
 
-def call_gpt55(prompt,images,run_dir,purpose,*,rerun_authorization=None):
-    try:key=load_key('OPENAI_API_KEY')
-    except ValueError:
-        # Read the already configured legacy credential without importing its script.
-        import ast
-        tree=ast.parse((PLUS_ROOT.parent/'output/gpt55-once.py').read_text())
-        key=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='OPENAI_API_KEY' for t in n.targets))
-    run=Path(run_dir);run.mkdir(parents=True,exist_ok=True);rid=uuid4().hex
+def _image_mime(data):
+    if data.startswith(b'\x89PNG\r\n\x1a\n'):return 'image/png'
+    if data.startswith(b'\xff\xd8\xff'):return 'image/jpeg'
+    if data.startswith((b'GIF87a',b'GIF89a')):return 'image/gif'
+    if data.startswith(b'RIFF') and data[8:12]==b'WEBP':return 'image/webp'
+    raise ValueError('unsupported image content')
+
+
+def _openai_config():
+    model=os.environ.get('FLOW_OPENAI_MODEL','gpt-5.5').strip()
+    effort=os.environ.get('FLOW_OPENAI_REASONING_EFFORT','medium').strip()
+    limit=os.environ.get('FLOW_OPENAI_MAX_OUTPUT_TOKENS','32768').strip()
+    if not model:raise ValueError('FLOW_OPENAI_MODEL must be nonempty')
+    if effort not in {'none','minimal','low','medium','high','xhigh'}:
+        raise ValueError('FLOW_OPENAI_REASONING_EFFORT is invalid')
+    if not limit.isdecimal() or not 1<=int(limit)<=128000:
+        raise ValueError('FLOW_OPENAI_MAX_OUTPUT_TOKENS must be 1..128000')
+    return model,effort,int(limit)
+
+
+def call_gpt55(prompt,images,run_dir,purpose,*,rerun_authorization=None,send_http=None,ledger=None):
+    model,effort,limit=_openai_config()
+    # Injected transports are offline fixtures and require no credential.
+    key=load_key('OPENAI_API_KEY') if send_http is None else None
+    run=Path(run_dir)
+    if (run/'request.json').exists():raise ValueError('this request directory was already attempted; no implicit retry')
     content=[{'type':'input_text','text':prompt}];manifest=[]
     for image in images:
-        path=Path(image);data=path.read_bytes();manifest.append(dict(path=str(path.resolve()),sha256=hashlib.sha256(data).hexdigest()))
-        content.append({'type':'input_image','image_url':'data:image/png;base64,'+base64.b64encode(data).decode(),'detail':'original'})
-    endpoint='https://api.openai.com/v1/responses'
-    body=dict(model='gpt-5.5',reasoning={'effort':'medium'},input=[{'role':'user','content':content}],stream=True,store=False)
-    write_json(run/'request.json',dict(request_id=rid,purpose=purpose,model='gpt-5.5',prompt=prompt,images=manifest,rerun_authorization=rerun_authorization))
-    req=urllib.request.Request(endpoint,json.dumps(body).encode(),{'Authorization':'Bearer '+key,'Content-Type':'application/json'})
+        path=Path(image);data=path.read_bytes();mime=_image_mime(data)
+        manifest.append(dict(path=str(path.resolve()),sha256=hashlib.sha256(data).hexdigest(),mime=mime))
+        content.append({'type':'input_image','image_url':f'data:{mime};base64,'+base64.b64encode(data).decode(),'detail':'original'})
+    endpoint='https://api.openai.com/v1/responses';rid=uuid4().hex
+    body=dict(model=model,reasoning={'effort':effort},max_output_tokens=limit,input=[{'role':'user','content':content}],stream=True,store=False)
+    body_bytes=json.dumps(body,ensure_ascii=False,separators=(',',':')).encode('utf-8')
+    headers={'Content-Type':'application/json'}
+    if key is not None:headers['Authorization']='Bearer '+key
+    req=urllib.request.Request(endpoint,body_bytes,headers)
+    run.mkdir(parents=True,exist_ok=True)
+    write_json(run/'request.json',dict(request_id=rid,purpose=purpose,endpoint=endpoint,model=model,prompt=prompt,images=manifest,rerun_authorization=rerun_authorization,body=body,body_sha256=hashlib.sha256(body_bytes).hexdigest()))
+    started=time.monotonic()
     def send():
         pieces=[];completed=False
-        with urllib.request.urlopen(req,timeout=1800) as response,(run/'events.jsonl').open('w') as events:
-            for raw in response:
-                line=raw.decode('utf-8','replace').strip()
-                if not line.startswith('data:') or line[5:].strip()=='[DONE]':continue
-                event=json.loads(line[5:].strip());events.write(json.dumps(event)+'\n');events.flush()
-                if event.get('type')=='response.output_text.delta':pieces.append(event.get('delta',''))
-                if event.get('type')=='response.completed':completed=True;write_json(run/'response.json',event['response'])
-                if event.get('type') in ('response.failed','response.incomplete','error'):raise ValueError('GPT response incomplete or failed')
-        text=''.join(pieces);(run/'response.txt').write_text(text)
+        transport=urllib.request.urlopen if send_http is None else send_http
+        try:
+            with transport(req,timeout=1800) as response,(run/'events.jsonl').open('w') as events:
+                for raw in response:
+                    line=raw.decode('utf-8','replace').strip()
+                    if not line.startswith('data:') or line[5:].strip()=='[DONE]':continue
+                    event=json.loads(line[5:].strip());events.write(json.dumps(event,ensure_ascii=False)+'\n');events.flush()
+                    kind=event.get('type')
+                    if kind=='response.output_text.delta':pieces.append(event.get('delta',''))
+                    if kind in ('response.completed','response.incomplete','response.failed'):
+                        final=event.get('response')
+                        if final is not None:
+                            write_json(run/'response.json',final)
+                            if final.get('usage') is not None:write_json(run/'usage.json',final['usage'])
+                    if kind=='response.completed':
+                        completed=True
+                        if event.get('response',{}).get('status')!='completed':raise ValueError('GPT response incomplete or failed')
+                    if kind in ('response.failed','response.incomplete','error'):raise ValueError('GPT response incomplete or failed')
+        finally:
+            (run/'response.txt').write_text(''.join(pieces))
         if not completed:raise ValueError('GPT stream ended without completion')
-        return text
-    try:return request_once('gpt-5.5',rid,PLUS_ROOT/'runs/session-ledger.jsonl',send,image_hash=manifest[0]['sha256'],rerun_authorization=rerun_authorization)
+        return ''.join(pieces)
+    try:
+        return request_once('gpt-5.5',rid,ledger or PLUS_ROOT/'runs/session-ledger.jsonl',send,image_hash=manifest[0]['sha256'] if manifest else None,rerun_authorization=rerun_authorization)
     except Exception as error:
-        write_json(run/'error.json',dict(type=type(error).__name__,http_status=getattr(error,'code',None)));raise
+        details=error.read().decode('utf-8','replace')[:3000] if hasattr(error,'read') else str(error)[:1000]
+        if key:details=details.replace(key,'[REDACTED]')
+        write_json(run/'error.json',dict(type=type(error).__name__,http_status=getattr(error,'code',None),details=details))
+        raise
+    finally:
+        write_json(run/'timings.json',dict(elapsed_seconds=time.monotonic()-started))
