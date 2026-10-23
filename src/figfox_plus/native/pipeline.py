@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+import xml.etree.ElementTree as ET
 from .document import parse,serialize,measure,public_svg,extract_response,bind_assets,frame_ids
 from .tools import execute,nodes,sp_element
 from .pack import build
@@ -13,6 +14,15 @@ from ..pipeline import parse_json
 from ..sam import prepare_assets
 
 def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+def _host_crop_proof(node,asset,original,requested_crop,folder):
+    path=Path(asset['path']).resolve();source=Path(original).resolve()
+    if not path.is_file() or not path.is_relative_to((Path(folder)/'assets').resolve()):raise ValueError('host crop asset is outside the run')
+    if asset['source_hash']!=sha(source) or asset['requested_crop']!=requested_crop:raise ValueError('host crop source or request mismatch')
+    if asset['representation'] not in ('raster','vector'):raise ValueError('host crop representation mismatch')
+    return {'node_id':node.get('id'),'node_sha256':hashlib.sha256(ET.tostring(node)).hexdigest(),
+            'asset_path':str(path),'asset_sha256':sha(path),'source_path':str(source),
+            'source_sha256':sha(source),'requested_crop':requested_crop,'representation':asset['representation']}
+
 def stage(root,original,folder):
     folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
     (folder/'scene.svg').write_text(serialize(root));b=measure(root,folder/'preview.png');write_json(folder/'bounds.json',b)
@@ -62,11 +72,25 @@ def first(original,run,send=call_gpt55,sam=None):
     for n in list(root.iter()):
         if n.get('data-plus-sp'):
             spec=json.loads(n.get('data-plus-sp'));part=sp_element(spec['kind'],spec['data'],n.get('id'));n.extend(list(part));n.attrib.pop('data-plus-sp')
+    host_crops={}
     for n in list(root.iter()):
         if n.get('data-plus-crop'):
             vals=[float(v) for v in n.get('data-plus-crop').split(',')]
-            spec={'id':'crop_'+n.get('id'),'issue_id':'first','action':'asset','target_ids':[n.get('id')], 'args':{'source_crop':vals,'target_box':crop_target_box(n,vals),'classification':'photo' if n.get('data-plus-representation')=='raster' else 'complex_geometry'}}
-            root,_=execute(root,[spec],[{'id':'first','target_ids':[n.get('id')]}],original,run)
+            oid=n.get('id');declarations={key:n.get(key) for key in ('data-plus-replaces','data-plus-keeps','data-plus-covered-frames','data-plus-kind') if n.get(key) is not None}
+            contained_frames={f.get('id') for f in n.iter() if f.get('data-plus-kind')=='frame' and f.get('id')}
+            contained_frames.update(fid for f in n.iter() for fid in f.get('data-plus-host-frame-ids','').split())
+            args={'source_crop':vals,'target_box':crop_target_box(n,vals),'classification':'photo' if n.get('data-plus-representation')=='raster' else 'complex_geometry'}
+            if n.get('data-plus-backend') is not None:args['backend']=n.get('data-plus-backend')
+            if n.get('data-plus-remove-background') is not None:
+                flag=n.get('data-plus-remove-background')
+                if flag not in ('true','false'):raise ValueError('data-plus-remove-background must be true or false')
+                args['remove_background']=flag=='true'
+            spec={'id':'crop_'+oid,'issue_id':'first','action':'asset','target_ids':[oid], 'args':args}
+            root,log=execute(root,[spec],[{'id':'first','target_ids':[oid]}],original,run)
+            node=nodes(root)[oid]
+            for key,value in declarations.items():node.set(key,value)
+            if contained_frames:node.set('data-plus-host-frame-ids',' '.join(sorted(contained_frames)))
+            host_crops[oid]=_host_crop_proof(node,log[0]['result'],original,vals,run)
     color_log=[]
     for node in list(root.iter()):
         if not node.get('data-plus-color'):continue
@@ -77,7 +101,7 @@ def first(original,run,send=call_gpt55,sam=None):
             root,log=execute(root,[op],[{'id':op['issue_id'],'target_ids':[oid]}],original,run/'first-color-tools');color_log.extend(log)
         nodes(root)[oid].attrib.pop('data-plus-color',None)
     from .sam_replace import apply_replacements
-    write_json(run/'first-sam-replacement.json',apply_replacements(root))
+    write_json(run/'first-sam-replacement.json',apply_replacements(root,host_crops))
     write_json(run/'first-color-execution.json',color_log)
     return root
 

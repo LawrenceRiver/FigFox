@@ -1,5 +1,18 @@
 """Remove only model-designated drafts after their SAM images have been bound."""
-def apply_replacements(root):
+import hashlib
+from pathlib import Path
+import xml.etree.ElementTree as ET
+
+def _authenticated_crop(node,proof):
+    if proof.get('node_id')!=node.get('id') or proof.get('representation') not in ('raster','vector'):return False
+    if hashlib.sha256(ET.tostring(node)).hexdigest()!=proof.get('node_sha256'):return False
+    try:
+        return (hashlib.sha256(Path(proof['asset_path']).read_bytes()).hexdigest()==proof['asset_sha256']
+                and hashlib.sha256(Path(proof['source_path']).read_bytes()).hexdigest()==proof['source_sha256'])
+    except (OSError,KeyError,TypeError):return False
+
+def apply_replacements(root,host_crops=None):
+    host_crops={} if host_crops is None else host_crops
     by_id={n.get('id'):n for n in root.iter() if n.get('id')}
     parents={c:p for p in root.iter() for c in p}
     plans=[];claimed=set();protected=set();unresolved=[]
@@ -7,8 +20,10 @@ def apply_replacements(root):
         value=node.get('data-plus-replaces')
         if not value:continue
         images=[n for n in node.iter() if n.tag.rsplit('}',1)[-1]=='image']
-        if not images or any(not (n.get('href') or '').startswith('data:image/png;base64,') for n in images):
-            raise ValueError('replacement requires bound image assets')
+        proof=host_crops.get(node.get('id'))
+        bound=bool(images) and all((n.get('href') or '').startswith('data:image/png;base64,') for n in images)
+        if not (_authenticated_crop(node,proof) if proof is not None else bound):
+            raise ValueError('replacement requires bound image assets or authenticated host crop')
         targets=value.split()
         keep=set(node.get('data-plus-keeps','').split());covered=set(node.get('data-plus-covered-frames','').split())
         if not keep.issubset(by_id):raise ValueError('unknown kept object')
@@ -22,6 +37,7 @@ def apply_replacements(root):
             target=by_id[oid]
             if target is root or node in list(target.iter()) or target in list(node.iter()):raise ValueError('replacement and draft must be separate')
             frames={n.get('id') for n in target.iter() if n.get('data-plus-kind')=='frame'}
+            frames.update(fid for n in target.iter() for fid in n.get('data-plus-host-frame-ids','').split())
             if not frames.issubset(covered):raise ValueError('frame coverage must be explicit')
             if not any(n.tag.rsplit('}',1)[-1] in {'path','rect','circle','ellipse','polygon','polyline','line','text','image','use'} for n in target.iter()):raise ValueError('empty replacement draft')
             claimed.add(oid)

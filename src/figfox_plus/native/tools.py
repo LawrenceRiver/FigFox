@@ -163,8 +163,11 @@ def _execute_ops(root,ops,issues,original,folder,relations=()):
             classification=a['classification']
             if classification not in ('photo','complex_geometry','abstract'):raise ValueError('asset needs explicit semantic classification')
             backend=a.get('backend','imagetracerjs')
-            if backend not in ('imagetracerjs','vtracer'):raise ValueError('only registered curve tracing candidates are enabled')
-            asset=remove_background_asset(crop_asset(original,a['source_crop'],Path(folder)/'assets'),Path(folder)/'assets')
+            if backend not in ('imagetracerjs','vtracer','pixelruns'):raise ValueError('unknown asset backend')
+            remove_background=a.get('remove_background',False)
+            if type(remove_background) is not bool:raise ValueError('remove_background must be a boolean')
+            asset=crop_asset(original,a['source_crop'],Path(folder)/'assets')
+            if remove_background:asset=remove_background_asset(asset,Path(folder)/'assets')
             data=dict(zip(('x','y','width','height'),a['target_box']));data['asset_id']=asset['id']
             if classification=='photo':
                 p=raster_part(data,[asset]);g=ET.Element('{'+SVG+'}g');ET.SubElement(g,'{'+SVG+'}image',{k:str(v) for k,v in p['attrs'].items()})
