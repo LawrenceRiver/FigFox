@@ -68,6 +68,53 @@ def test_invalid_output_limit_fails_before_http_or_attempt(tmp_path, monkeypatch
     assert not (tmp_path / "ledger.jsonl").exists()
 
 
+def test_gpt55_minimal_effort_fails_before_http_or_attempt(tmp_path, monkeypatch):
+    monkeypatch.setenv("FLOW_OPENAI_MODEL", "gpt-5.5")
+    monkeypatch.setenv("FLOW_OPENAI_REASONING_EFFORT", "minimal")
+    sent = []
+    with pytest.raises(ValueError, match="FLOW_OPENAI_REASONING_EFFORT"):
+        _call(tmp_path, lambda *a, **k: sent.append(True))
+    assert not sent
+    assert not (tmp_path / "attempt/request.json").exists()
+    assert not (tmp_path / "ledger.jsonl").exists()
+
+
+@pytest.mark.parametrize("deltas", [[], ["<svg>stale</svg>"]])
+def test_completed_response_text_is_authoritative(tmp_path, deltas):
+    final = {"status": "completed", "output": [{"type": "message", "content": [
+        {"type": "output_text", "text": "<svg></svg>"},
+    ]}]}
+    events = [{"type": "response.output_text.delta", "delta": text} for text in deltas]
+    events.append({"type": "response.completed", "response": final})
+    assert _call(tmp_path, lambda *a, **k: _sse(*events)) == "<svg></svg>"
+    assert (tmp_path / "attempt/response.txt").read_text() == "<svg></svg>"
+    assert json.loads((tmp_path / "attempt/response.json").read_text()) == final
+    assert json.loads((tmp_path / "attempt/usage.json").read_text()) == {"status": "unknown"}
+    assert json.loads((tmp_path / "attempt/timings.json").read_text())["attempt_status"] == "completed"
+
+
+def test_malformed_sse_preserves_exact_fragment_and_partial_text(tmp_path):
+    valid = b'data: {"type":"response.output_text.delta","delta":"<svg"}\n\n'
+    malformed = b'data: {"type":"response.completed","response":'
+    sent = []
+    def send(*args, **kwargs):
+        sent.append(True)
+        return io.BytesIO(valid + malformed)
+    with pytest.raises(json.JSONDecodeError):
+        _call(tmp_path, send)
+    run = tmp_path / "attempt"
+    assert sent == [True]
+    assert (run / "events.raw").read_bytes() == valid + malformed
+    assert len(_records(run / "events.jsonl")) == 1
+    assert (run / "response.txt").read_text() == "<svg"
+    assert json.loads((run / "usage.json").read_text()) == {"status": "unknown"}
+    assert json.loads((run / "timings.json").read_text())["attempt_status"] == "malformed_stream"
+    assert [r["event"] for r in _records(tmp_path / "ledger.jsonl")] == ["sending", "error"]
+    with pytest.raises(ValueError, match="already attempted"):
+        _call(tmp_path, send)
+    assert sent == [True]
+
+
 def test_sse_success_saves_exact_request_usage_and_timings(tmp_path, monkeypatch):
     monkeypatch.setenv("FLOW_OPENAI_MODEL", "fixture-model")
     monkeypatch.setenv("FLOW_OPENAI_REASONING_EFFORT", "high")
@@ -107,6 +154,8 @@ def test_sse_success_saves_exact_request_usage_and_timings(tmp_path, monkeypatch
     assert json.loads((tmp_path / "attempt/usage.json").read_text())["input_tokens"] == 19
     timing = json.loads((tmp_path / "attempt/timings.json").read_text())
     assert timing["elapsed_seconds"] >= 0
+    assert timing["attempt_status"] == "completed"
+    assert (tmp_path / "attempt/events.raw").read_bytes().startswith(b"data: ")
     assert [r["event"] for r in _records(tmp_path / "ledger.jsonl")] == ["sending", "ok"]
 
 
@@ -127,6 +176,8 @@ def test_incomplete_stream_keeps_raw_evidence_and_cannot_retry_same_dir(tmp_path
     assert (tmp_path / "attempt/events.jsonl").exists()
     assert (tmp_path / "attempt/response.txt").read_text() == "partial"
     assert json.loads((tmp_path / "attempt/error.json").read_text())["type"] == "ValueError"
+    assert json.loads((tmp_path / "attempt/usage.json").read_text()) == ({"input_tokens": 2} if "incomplete" in error else {"status": "unknown"})
+    assert json.loads((tmp_path / "attempt/timings.json").read_text())["attempt_status"] == ("incomplete" if "incomplete" in error else "truncated_stream")
     assert [r["event"] for r in _records(tmp_path / "ledger.jsonl")] == ["sending", "error"]
     if "incomplete" in error:
         assert json.loads((tmp_path / "attempt/response.json").read_text())["status"] == "incomplete"
@@ -148,4 +199,6 @@ def test_http_error_is_single_attempt_and_error_details_are_redacted(tmp_path):
     error = json.loads((tmp_path / "attempt/error.json").read_text())
     assert error["http_status"] == 429
     assert "fixture-http-error" in error["details"]
+    assert json.loads((tmp_path / "attempt/usage.json").read_text()) == {"status": "unknown"}
+    assert json.loads((tmp_path / "attempt/timings.json").read_text())["attempt_status"] == "failed"
     assert [r["event"] for r in _records(tmp_path / "ledger.jsonl")] == ["sending", "error"]

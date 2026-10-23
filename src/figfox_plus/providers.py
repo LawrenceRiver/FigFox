@@ -103,9 +103,22 @@ def _openai_config():
     if not model:raise ValueError('FLOW_OPENAI_MODEL must be nonempty')
     if effort not in {'none','minimal','low','medium','high','xhigh'}:
         raise ValueError('FLOW_OPENAI_REASONING_EFFORT is invalid')
+    if model=='gpt-5.5' and effort=='minimal':
+        raise ValueError('FLOW_OPENAI_REASONING_EFFORT minimal is invalid for gpt-5.5')
     if not limit.isdecimal() or not 1<=int(limit)<=128000:
         raise ValueError('FLOW_OPENAI_MAX_OUTPUT_TOKENS must be 1..128000')
     return model,effort,int(limit)
+
+
+def _response_output_text(response):
+    """Return final output text when the completed response supplies it."""
+    if isinstance(response.get('output_text'),str):return response['output_text']
+    texts=[]
+    for item in response.get('output',[]):
+        for part in item.get('content',[]):
+            if part.get('type')=='output_text' and isinstance(part.get('text'),str):
+                texts.append(part['text'])
+    return ''.join(texts) if texts else None
 
 
 def call_gpt55(prompt,images,run_dir,purpose,*,rerun_authorization=None,send_http=None,ledger=None):
@@ -128,15 +141,24 @@ def call_gpt55(prompt,images,run_dir,purpose,*,rerun_authorization=None,send_htt
     run.mkdir(parents=True,exist_ok=True)
     write_json(run/'request.json',dict(request_id=rid,purpose=purpose,endpoint=endpoint,model=model,prompt=prompt,images=manifest,rerun_authorization=rerun_authorization,body=body,body_sha256=hashlib.sha256(body_bytes).hexdigest()))
     started=time.monotonic()
+    attempt_status='not_sent'
     def send():
-        pieces=[];completed=False
+        nonlocal attempt_status
+        pieces=[];completed=False;final_response=None;selected_text=None
+        attempt_status='failed'
+        write_json(run/'usage.json',{'status':'unknown'})
         transport=urllib.request.urlopen if send_http is None else send_http
         try:
-            with transport(req,timeout=1800) as response,(run/'events.jsonl').open('w') as events:
+            with transport(req,timeout=1800) as response,(run/'events.jsonl').open('w') as events,(run/'events.raw').open('wb') as raw_events:
                 for raw in response:
+                    raw_events.write(raw);raw_events.flush()
                     line=raw.decode('utf-8','replace').strip()
                     if not line.startswith('data:') or line[5:].strip()=='[DONE]':continue
-                    event=json.loads(line[5:].strip());events.write(json.dumps(event,ensure_ascii=False)+'\n');events.flush()
+                    try:event=json.loads(line[5:].strip())
+                    except json.JSONDecodeError:
+                        attempt_status='malformed_stream'
+                        raise
+                    events.write(json.dumps(event,ensure_ascii=False)+'\n');events.flush()
                     kind=event.get('type')
                     if kind=='response.output_text.delta':pieces.append(event.get('delta',''))
                     if kind in ('response.completed','response.incomplete','response.failed'):
@@ -146,12 +168,22 @@ def call_gpt55(prompt,images,run_dir,purpose,*,rerun_authorization=None,send_htt
                             if final.get('usage') is not None:write_json(run/'usage.json',final['usage'])
                     if kind=='response.completed':
                         completed=True
-                        if event.get('response',{}).get('status')!='completed':raise ValueError('GPT response incomplete or failed')
-                    if kind in ('response.failed','response.incomplete','error'):raise ValueError('GPT response incomplete or failed')
+                        final_response=event.get('response')
+                        if not isinstance(final_response,dict) or final_response.get('status')!='completed':
+                            attempt_status='incomplete'
+                            raise ValueError('GPT response incomplete or failed')
+                    if kind in ('response.failed','response.incomplete','error'):
+                        attempt_status='incomplete' if kind=='response.incomplete' else 'failed'
+                        raise ValueError('GPT response incomplete or failed')
+            if not completed:
+                attempt_status='truncated_stream'
+                raise ValueError('GPT stream ended without completion')
+            selected_text=_response_output_text(final_response)
+            if selected_text is None:selected_text=''.join(pieces)
+            attempt_status='completed'
+            return selected_text
         finally:
-            (run/'response.txt').write_text(''.join(pieces))
-        if not completed:raise ValueError('GPT stream ended without completion')
-        return ''.join(pieces)
+            (run/'response.txt').write_text(''.join(pieces) if selected_text is None else selected_text)
     try:
         return request_once('gpt-5.5',rid,ledger or PLUS_ROOT/'runs/session-ledger.jsonl',send,image_hash=manifest[0]['sha256'] if manifest else None,rerun_authorization=rerun_authorization)
     except Exception as error:
@@ -160,4 +192,4 @@ def call_gpt55(prompt,images,run_dir,purpose,*,rerun_authorization=None,send_htt
         write_json(run/'error.json',dict(type=type(error).__name__,http_status=getattr(error,'code',None),details=details))
         raise
     finally:
-        write_json(run/'timings.json',dict(elapsed_seconds=time.monotonic()-started))
+        write_json(run/'timings.json',dict(elapsed_seconds=time.monotonic()-started,attempt_status=attempt_status))
