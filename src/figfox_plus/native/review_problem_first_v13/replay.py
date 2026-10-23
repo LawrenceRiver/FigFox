@@ -131,10 +131,12 @@ def canonicalize_program(program):
     visit(args.get('operations'),['args','operations'])
 
 
-def select_valid_programs(programs,issues,images,prior_executed=None):
+def select_valid_programs(programs,issues,images,prior_executed=None,*,capabilities=None):
     accepted=[];rejected=[]
     for index,raw in enumerate(programs):
         try:
+            from ..capabilities import reject_disabled_program
+            reject_disabled_program(raw,capabilities)
             _program_shape(raw)
             program=deepcopy(raw)
             canonicalize_program(program)
@@ -160,7 +162,7 @@ def select_valid_programs(programs,issues,images,prior_executed=None):
                         if op.get('method')=='bp_program' and isinstance(op.get('args'),dict):
                             normalize_measure_args(op['args'].get('operations'),op_path+['args','operations'])
                 normalize_measure_args(program.get('args',{}).get('operations'),['args','operations'])
-            validate_programs(accepted+[program],issues,images,prior_executed=prior_executed)
+            validate_programs(accepted+[program],issues,images,prior_executed=prior_executed,capabilities=capabilities)
         except Exception as exc:
             rejected.append(_rejection(raw,index,exc))
         else:accepted.append(program)
@@ -169,6 +171,8 @@ def select_valid_programs(programs,issues,images,prior_executed=None):
 
 def run_saved_programs(task_dir,output_dir):
     root=Path(task_dir).resolve();out=Path(output_dir).resolve()
+    from ..capabilities import load_policy
+    capabilities=load_policy(root)
     if out.exists():raise ValueError('local replay output must be new')
     out.mkdir(parents=True)
     write_json(out/'local-replay.json',{'source_task':str(root),'model_calls':0})
@@ -201,11 +205,11 @@ def run_saved_programs(task_dir,output_dir):
         except (ValueError,TypeError,KeyError) as exc:
             coverage={'records_complete':False,'inspection_complete':False,'visual_acceptance':'not_assessed','error':str(exc)}
     write_json(out/'coverage.json',coverage)
-    accepted,rejected=select_valid_programs(plan['programs'],plan['issues'],images)
+    accepted,rejected=select_valid_programs(plan['programs'],plan['issues'],images,capabilities=capabilities)
     rejected=shape_rejected+plan.get('_decode_rejections',[])+rejected
     write_json(out/'program-preflight.json',{'accepted':[p['id'] for p in accepted],'rejected':rejected})
     write_json(out/'normalized-programs.json',accepted)
-    result=execute_programs(accepted,plan['issues'],images,out/'execution')
+    result=execute_programs(accepted,plan['issues'],images,out/'execution',capabilities=capabilities)
     result['rejected_programs']=rejected
     result.update(status='local_programs_executed_inspection_unverified',issues=plan['issues'],coverage=coverage,model_calls=0,visual_passed=False)
     write_json(out/'result.json',result)

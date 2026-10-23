@@ -84,53 +84,70 @@ def _image(asset):
             {'type':'image_url','image_url':{'url':'data:'+mime+';base64,'+base64.b64encode(raw).decode(),'detail':'original'}}]
 
 
-def prepare(bundle, task_dir, *, upstream_arrow_specs=None):
+def prepare(bundle, task_dir, *, upstream_arrow_specs=None,capabilities=None):
+    from ..capabilities import normalize_capabilities,trace_context
+    policy=normalize_capabilities(capabilities)
+    with trace_context(task_dir,policy,'prepare'):
+        return _prepare(bundle,task_dir,upstream_arrow_specs=upstream_arrow_specs,capabilities=policy)
+
+def _prepare(bundle,task_dir,*,upstream_arrow_specs=None,capabilities=None):
+    from ..capabilities import normalize_capabilities,freeze_policy,invoke
+    from ..capability_prompts import common_prompt,block_hashes
+    policy=normalize_capabilities(capabilities)
+    prompt=common_prompt(policy)+'\n'+PROMPT.replace('Formulas must compile using local MathJax base, ams, and newcommand.','Formulas must display correct symbols and structure; use the registered compiler when available.')
     inputs=validate_bundle(bundle)
     if len(inputs['images']) != 1:
         raise ValueError('one_image_per_review: prepare each image as an independent task')
     root=Path(task_dir).resolve();root.mkdir(parents=True,exist_ok=False)
+    freeze_policy(root,policy)
+    write_json(root/'prompt-block-hashes.json',block_hashes(policy))
     assets=root/'inputs';assets.mkdir()
     for i,a in enumerate(_assets(inputs)):
         dest=assets/(f'{i:04d}'+Path(a['path']).suffix)
         shutil.copyfile(a['path'],dest);a['path']=str(dest)
-    inputs=validate_bundle(inputs);schedule=make_schedule(inputs);methods=build_method_pack()
+    inputs=validate_bundle(inputs);schedule=make_schedule(inputs);methods=build_method_pack(capabilities=policy)
     write_json(root/'inputs.json',inputs);write_json(root/'schedule.json',schedule);write_json(root/'methods.json',methods)
-    diagnostic_pack={}
-    for key,im in inputs['images'].items():
-        measured=measure_tight(ET.fromstring(Path(im['current_svg']['path']).read_text()))
-        measured['current_revision']=im['current_revision']
-        tp_file=root/(key+'-full-tight-tp.json');write_json(tp_file,measured)
-        report=build_diagnostics(im['current_svg']['path'],tp_file)
-        report['current_revision']=im['current_revision']
-        # Geometric bounds can expose unclipped viewport overflow that raster TP cannot.
-        coarse=build_diagnostics(im['current_svg']['path'],im['current_tp']['path'])
-        report['unclipped_geometry_overflow_candidates']=[r for r in coarse['relation_candidates'] if r['kind']=='canvas_overflow']
-        write_json(root/(key+'-diagnostics.json'),report)
-        diagnostic_pack[key]={'current_revision':im['current_revision'],'coverage':report['coverage'],
-            'relation_columns':['kind','object_ids','intersection_size','margins_ltrb'],
-            'relation_candidates':[[r['kind'],r['object_ids'],r.get('intersection_size'),r.get('margins_ltrb')] for r in report['relation_candidates']],
-            'structure_candidates':report['structure_candidates'],'unmeasurable':report['unmeasurable'],
-            'unclipped_geometry_overflow_candidates':report['unclipped_geometry_overflow_candidates'],
-            'normal_containment_count':len(report['normal_containment']),
-            'instructions':report['instruction']}
-    write_json(root/'current-diagnostics.json',diagnostic_pack)
-    line_pack={}
-    for key,im in inputs['images'].items():
-        facts=build_line_facts(im['current_svg']['path']);facts['current_revision']=im['current_revision']
-        write_json(root/(key+'-line-facts.json'),facts);line_pack[key]=facts
-    write_json(root/'current-line-facts.json',line_pack)
-    from ..line_alignment_candidates import summarize_line_alignment
-    alignment_pack={key:summarize_line_alignment(facts) for key,facts in line_pack.items()}
-    write_json(root/'current-line-alignment-candidates.json',alignment_pack)
-    from ..coincident_path_candidates import build_coincident_path_candidates
-    coincident_pack={key:build_coincident_path_candidates(inputs['images'][key]['current_svg']['path'],facts)
-                     for key,facts in line_pack.items()}
-    write_json(root/'current-coincident-path-candidates.json',coincident_pack)
+    diagnostic_pack={};line_pack={};alignment_pack={};coincident_pack={}
+    if policy['code_methods']:
+        diagnostic_pack={}
+        for key,im in inputs['images'].items():
+            measured=measure_tight(ET.fromstring(Path(im['current_svg']['path']).read_text()))
+            measured['current_revision']=im['current_revision']
+            tp_file=root/(key+'-full-tight-tp.json');write_json(tp_file,measured)
+            report=build_diagnostics(im['current_svg']['path'],tp_file)
+            report['current_revision']=im['current_revision']
+            # Geometric bounds can expose unclipped viewport overflow that raster TP cannot.
+            coarse=build_diagnostics(im['current_svg']['path'],im['current_tp']['path'])
+            report['unclipped_geometry_overflow_candidates']=[r for r in coarse['relation_candidates'] if r['kind']=='canvas_overflow']
+            write_json(root/(key+'-diagnostics.json'),report)
+            diagnostic_pack[key]={'current_revision':im['current_revision'],'coverage':report['coverage'],
+                'relation_columns':['kind','object_ids','intersection_size','margins_ltrb'],
+                'relation_candidates':[[r['kind'],r['object_ids'],r.get('intersection_size'),r.get('margins_ltrb')] for r in report['relation_candidates']],
+                'structure_candidates':report['structure_candidates'],'unmeasurable':report['unmeasurable'],
+                'unclipped_geometry_overflow_candidates':report['unclipped_geometry_overflow_candidates'],
+                'normal_containment_count':len(report['normal_containment']),
+                'instructions':report['instruction']}
+        write_json(root/'current-diagnostics.json',diagnostic_pack)
+        line_pack={}
+        for key,im in inputs['images'].items():
+            facts=build_line_facts(im['current_svg']['path']);facts['current_revision']=im['current_revision']
+            write_json(root/(key+'-line-facts.json'),facts);line_pack[key]=facts
+        write_json(root/'current-line-facts.json',line_pack)
+        from ..line_alignment_candidates import summarize_line_alignment
+        alignment_pack={key:summarize_line_alignment(facts) for key,facts in line_pack.items()}
+        write_json(root/'current-line-alignment-candidates.json',alignment_pack)
+        from ..coincident_path_candidates import build_coincident_path_candidates
+        coincident_pack={key:build_coincident_path_candidates(inputs['images'][key]['current_svg']['path'],facts)
+                         for key,facts in line_pack.items()}
+        write_json(root/'current-coincident-path-candidates.json',coincident_pack)
+
+    for name,pack in [('current-diagnostics',diagnostic_pack),('current-line-facts',line_pack),('current-line-alignment-candidates',alignment_pack),('current-coincident-path-candidates',coincident_pack)]:write_json(root/(name+'.json'),pack)
 
     from .upstream_arrows import freeze_arrow_evidence
     arrow_context={};arrow_assets=[];arrow_provenance={}
     for key,im in inputs['images'].items():
-        evidence=freeze_arrow_evidence((upstream_arrow_specs or {}).get(key),im['original_png'],root/'upstream-arrows'/key)
+        if not policy['sam']:continue
+        evidence=invoke('sam_intervention',freeze_arrow_evidence,(upstream_arrow_specs or {}).get(key),im['original_png'],root/'upstream-arrows'/key)
         for a in evidence['image_assets']:a['asset_id']=key+'/'+a['asset_id']
         for a in evidence['model_context']['arrows']:a['asset_id']=key+'/'+a['asset_id']
         arrow_context[key]=evidence['model_context'];arrow_assets.extend(evidence['image_assets']);arrow_provenance[key]=evidence['provenance']
@@ -138,7 +155,7 @@ def prepare(bundle, task_dir, *, upstream_arrow_specs=None):
     write_json(root/'upstream-arrow-assets.json',arrow_assets)
 
     content=[{'type':'text','text':json.dumps({'input_inventory':{str(i):v for i,v in enumerate(['original Crop','current SVG','current PNG','original PNG','current Crop','current TP','SP library','BP library','Q list','Ask_data contract','Reconstructor interface','Preconstructor interface'],1)},
-       'schedule':schedule,'upstream_arrow_evidence':arrow_context,'current_line_facts':{k:compact_line_facts(v) for k,v in line_pack.items()},'current_line_alignment_candidates':alignment_pack,'current_coincident_path_candidates':coincident_pack,'current_diagnostics':diagnostic_pack,'method_pack':methods,'program_contract':PROMPT},ensure_ascii=False)}]
+       'schedule':schedule,'upstream_arrow_evidence':arrow_context,'current_line_facts':{k:compact_line_facts(v) for k,v in line_pack.items()},'current_line_alignment_candidates':alignment_pack,'current_coincident_path_candidates':coincident_pack,'current_diagnostics':diagnostic_pack,'method_pack':methods,'program_contract':prompt},ensure_ascii=False)}]
     for key,im in inputs['images'].items():
         content.append({'type':'text','text':json.dumps({'image_id':key,'revision':im['current_revision'],
           'current_svg':Path(im['current_svg']['path']).read_text(),'current_tp':json.loads(Path(im['current_tp']['path']).read_text()),
@@ -147,11 +164,15 @@ def prepare(bundle, task_dir, *, upstream_arrow_specs=None):
         for pair in im['crop_pairs']:
             content.extend(_image(pair['original_asset']));content.extend(_image(pair['current_asset']))
     for arrow_asset in arrow_assets:content.extend(_image(arrow_asset))
-    messages=[{'role':'system','content':PROMPT},{'role':'user','content':content}]
+    messages=[{'role':'system','content':prompt},{'role':'user','content':content}]
     resources={}
     for item in content:
         if item['type']!='text':continue
         data=json.loads(item['text'])
+        if not policy['code_methods']:
+            for key in ('current_tp','current_diagnostics','current_line_facts','current_line_alignment_candidates','current_coincident_path_candidates'):data.pop(key,None)
+            if 'input_inventory' in data:data['input_inventory']=['original image','current SVG','current PNG','same 1/2 comparison crops','ID navigation','inspection categories','stdlib generated_python']
+        if not policy['sam']:data.pop('upstream_arrow_evidence',None)
         if 'schedule' in data:
             data.update(compact_category_itinerary(data.pop('schedule')))
             data['schedule_encoding']='Region ids are only for citing a problem. Do not list every region. One look per category, then decide.'
@@ -172,7 +193,7 @@ def prepare(bundle, task_dir, *, upstream_arrow_specs=None):
     if len(json.dumps(messages,ensure_ascii=False).encode())>100_000_000:
         raise ValueError('input_capacity_exceeded: prepared messages exceed 100MB; no evidence discarded')
     write_json(root/'messages.json',messages)
-    write_json(root/'frozen.json',{p.name:_hash(p) for p in [root/'inputs.json',root/'schedule.json',root/'methods.json',root/'messages.json',root/'current-diagnostics.json',root/'upstream-arrow-provenance.json',root/'upstream-arrow-assets.json',root/'current-line-facts.json',root/'current-line-alignment-candidates.json',root/'current-coincident-path-candidates.json',root/'image-presentation-audit.json']})
+    write_json(root/'frozen.json',{p.name:_hash(p) for p in [root/'capabilities.json',root/'prompt-block-hashes.json',root/'inputs.json',root/'schedule.json',root/'methods.json',root/'messages.json',root/'current-diagnostics.json',root/'upstream-arrow-provenance.json',root/'upstream-arrow-assets.json',root/'current-line-facts.json',root/'current-line-alignment-candidates.json',root/'current-coincident-path-candidates.json',root/'image-presentation-audit.json']})
     return inputs
 
 
@@ -250,7 +271,16 @@ def _review_audit(plan,prior,images):
     return {'status':'records_valid','visual_acceptance':'not_assessed'}
 
 
-def run(task_dir, *, sender=None, request_limit=2):
+def run(task_dir, *, sender=None, request_limit=2,capabilities=None):
+    from ..capabilities import load_policy,trace_context
+    policy=load_policy(task_dir,capabilities)
+    with trace_context(task_dir,policy,'review'):
+        return _run(task_dir,sender=sender,request_limit=request_limit,capabilities=policy)
+
+def _run(task_dir,*,sender=None,request_limit=2,capabilities=None):
+    from ..capabilities import normalize_capabilities,capability_hash,trace_event
+    from ..capability_prompts import repair_prompt
+    policy=normalize_capabilities(capabilities)
     if type(request_limit)!=int or request_limit not in (1,2):raise ValueError('request_limit must be 1 or 2')
     root=Path(task_dir).resolve()
     with (root/'pipeline.lock').open('a') as lock:
@@ -261,7 +291,7 @@ def run(task_dir, *, sender=None, request_limit=2):
             if _hash(asset['path'])!=asset['sha256']:raise ValueError('frozen upstream arrow asset modified')
         inputs=validate_bundle(json.loads((root/'inputs.json').read_text()))
         if len(inputs['images']) != 1:raise ValueError('one_image_per_review')
-        if build_method_pack()['version_hash']!=json.loads((root/'methods.json').read_text())['version_hash']:
+        if build_method_pack(capabilities=policy)['version_hash']!=json.loads((root/'methods.json').read_text())['version_hash']:
             raise ValueError('method_library_changed_since_prepare')
         result_file=root/'result.json'
         if result_file.exists():return json.loads(result_file.read_text())
@@ -314,7 +344,7 @@ def run(task_dir, *, sender=None, request_limit=2):
                     validate_issues(plan['issues'],plan['programs'],images)
                     from .programs import execute_programs
                     from .replay import select_valid_programs
-                    accepted,rejected=select_valid_programs(plan['programs'],plan['issues'],images,prior_executed=all_rcd)
+                    accepted,rejected=select_valid_programs(plan['programs'],plan['issues'],images,prior_executed=all_rcd,capabilities=policy)
                     all_rejected.extend(rejected)
                     rejected=shape_rejected+rejected
                     write_json(turn/'program-preflight.json',{'accepted':[p['id'] for p in accepted],'rejected':rejected})
@@ -322,7 +352,7 @@ def run(task_dir, *, sender=None, request_limit=2):
                     if not accepted:
                         feedback={'execution_result':{'status':'precheck_failed','rejected':rejected},'coverage':coverage,'visual_passed':False}
                     else:
-                        result=execute_programs(accepted,plan['issues'],images,turn/'execution',prior_executed=all_rcd)
+                        result=execute_programs(accepted,plan['issues'],images,turn/'execution',prior_executed=all_rcd,capabilities=policy)
                         result['rejected_programs']=rejected
                         images={k:dict(v,original=images[k]['original']) for k,v in result['images'].items()};all_rcd.extend(result['rcd'])
                         feedback={'execution_result':result,'coverage':coverage,'visual_passed':False}
@@ -343,9 +373,9 @@ def run(task_dir, *, sender=None, request_limit=2):
                 if raw_calls:
                     for raw_call in raw_calls:
                         messages.append({'role':'tool','tool_call_id':raw_call['id'],'content':note})
-                messages.append({'role':'user','content':REPAIR_PROMPT+'\n'+PROGRAM_CONTRACT+'\n'+note})
+                messages.append({'role':'user','content':repair_prompt(policy)+'\n'+note})
         result={'status':('inspection_incomplete' if not coverage.get('records_complete') else 'execution_failed' if feedback['execution_result'].get('error') else 'partially_executed' if any(r.get('status') in ('failed','blocked') for r in all_rcd) else 'visual_review_pending'),
-                'images':images,'issues':all_issues,'rcd':all_rcd,'coverage':coverage,'visual_passed':False,
+                'capabilities':policy,'capability_hash':capability_hash(policy),'images':images,'issues':all_issues,'rcd':all_rcd,'coverage':coverage,'visual_passed':False,
                 'rejected_programs':all_rejected,'review_audits':review_audits,'request_limit':request_limit,'final_model_visual_review':False,'last_feedback':feedback}
         critical=[i for i in all_issues if i.get('decision')=='confirmed' and i.get('category') in ('E','F','B','A','S1','D','S2')]
         critical_map={i['id']:i['category'] for i in critical}
@@ -358,8 +388,25 @@ def run(task_dir, *, sender=None, request_limit=2):
         from .followup import run_followup
         follow_dir=root.parent/(root.name+'-followup')
         try:
-            result['followup']=run_followup(root,follow_dir,sender=sender)
+            result['followup']=run_followup(root,follow_dir,sender=sender,capabilities=policy)
         except Exception as exc:
             result['followup']={'opened':True,'status':'failed','error':type(exc).__name__+': '+str(exc)}
+            # A later failure must not hide an already committed transaction.
+            for saved in (follow_dir/'execution/result.json',follow_dir/'execution/state.json'):
+                if not saved.exists():continue
+                committed=json.loads(saved.read_text())
+                for image in committed['images'].values():
+                    if _hash(image['svg'])!=image['revision']:raise ValueError('followup committed SVG revision mismatch')
+                result['followup'].update(images=committed['images'],rcd=committed.get('rcd',[]),recovered_from=str(saved))
+                break
+        if result['followup'].get('images'):
+            result['images']=result['followup']['images']
+            result['rcd'].extend(result['followup'].get('rcd',[]))
+            result['terminal_source']='followup'
+            from .followup import _landed
+            result['emergency_unresolved']=[i['id'] for i in critical if not _landed(i,result['rcd'])]
+            if not result['emergency_unresolved'] and result['status']=='emergency_unresolved':result['status']='visual_review_pending'
+        else:result['terminal_source']='review'
         write_json(result_file,result)
+        write_report(root,inputs,all_issues,result['rcd'],coverage,output_images=result['images'])
         return result

@@ -64,9 +64,13 @@ def open_issues(result):
     return opened
 
 
-def run_followup(task_dir, out_dir, *, sender=None):
+def run_followup(task_dir, out_dir, *, sender=None,capabilities=None):
     """Send one request for open priority issues. A clear receipt does not call the model."""
     root = Path(task_dir).resolve()
+    from ..capabilities import load_policy,freeze_policy
+    from ..capability_prompts import repair_prompt,block_hashes
+    policy=load_policy(root,capabilities)
+    prompt=repair_prompt(policy,followup=True)
     result = json.loads((root / 'result.json').read_text())
     opened = open_issues(result)
     if not opened:
@@ -75,6 +79,8 @@ def run_followup(task_dir, out_dir, *, sender=None):
     if out == root or root in out.parents or out in root.parents:
         raise ValueError('follow-up directory must be outside the finished task')
     out.mkdir(parents=True, exist_ok=False)
+    freeze_policy(out,policy)
+    write_json(out/'prompt-block-hashes.json',block_hashes(policy))
     write_json(out / 'open-issues.json', opened)
     from .orchestrator import _image, _plan, _svg_text, _tools_for
     from .transport import send
@@ -89,7 +95,7 @@ def run_followup(task_dir, out_dir, *, sender=None):
         'current_svg': _svg_text(Path(current['svg']).read_text()),
         'open_issues': opened,
         'method_pack': methods,
-        'instruction': PROMPT,
+        'instruction': prompt,
     }, ensure_ascii=False)}]
     content.append({'type': 'text', 'text': 'Full original figure'})
     content.extend(_image(catalog['original_png']))
@@ -101,8 +107,8 @@ def run_followup(task_dir, out_dir, *, sender=None):
         content.append({'type': 'text', 'text': '1/2 Crop ' + pair['pair_id'] + '. The first image is the original-figure crop; the second is the current-render crop.'})
         content.extend(_image(pair['original_asset']))
         content.extend(_image(pair['current_asset']))
-    messages = [{'role': 'system', 'content': PROMPT}, {'role': 'user', 'content': content}]
-    write_json(out / 'messages.json', {'crop_pairs': len(catalog['crop_pairs']), 'issue_ids': [row['id'] for row in opened]})
+    messages = [{'role': 'system', 'content': prompt}, {'role': 'user', 'content': content}]
+    write_json(out / 'messages.json', messages)
     message = (sender or send)(messages, _tools_for(schedule, review_only=True), out, request_limit=1)
     write_json(out / 'message.json', message)
     plan, _call_id = _plan(message, schedule, review_only=True)
@@ -129,17 +135,16 @@ def run_followup(task_dir, out_dir, *, sender=None):
                          'revision': current['revision']}}
     programs, shape_rejected = filter_program_shapes(programs)
     validate_issues(issues, programs, images)
-    accepted, rejected = select_valid_programs(programs, issues, images)
+    accepted, rejected = select_valid_programs(programs, issues, images,capabilities=policy)
     write_json(out / 'program-preflight.json', {'accepted': [program['id'] for program in accepted], 'rejected': rejected,
                                                  'shape_rejected': shape_rejected, 'dropped_program_ids': dropped})
     execution = {'status': 'no_accepted_program', 'rcd': []}
     if accepted:
-        execution = execute_programs(accepted, issues, images, out / 'execution')
+        execution = execute_programs(accepted, issues, images, out / 'execution',capabilities=policy)
     summary = {'opened': True, 'status': 'completed', 'issue_ids': [row['id'] for row in opened],
                'accepted': [program['id'] for program in accepted],
                'rejected': [row.get('program_id') for row in rejected],
                'dropped_program_ids': dropped,
-               'rcd': [{'program_id': row.get('program_id'), 'issue_ids': row.get('issue_ids'), 'status': row.get('status'),
-                        'error': row.get('error')} for row in execution.get('rcd') or []]}
+               'images':execution.get('images',images),'rcd':execution.get('rcd',[])}
     write_json(out / 'followup-result.json', summary)
     return summary

@@ -4,6 +4,7 @@ import json
 import math
 import time
 from pathlib import Path
+import shutil
 
 from PIL import Image
 
@@ -13,6 +14,7 @@ from figfox_plus.native.review_problem_first_v13.orchestrator import prepare, ru
 from figfox_plus.native.review_problem_first_v13.upstream_arrows import freeze_arrow_evidence
 from figfox_plus.providers import call_gpt55
 from figfox_plus.state import new_run, write_json
+from .capabilities import normalize_capabilities, capability_hash, trace_context, invoke
 
 
 def sha(path):
@@ -77,7 +79,9 @@ def bundle_from_stage(run, original, image_id):
     }}}
 
 
-def run_chain(image, out, *, image_id, rerun_authorization):
+def run_chain(image, out, *, image_id, rerun_authorization, capabilities=None,
+              first_sender=None, review_sender=None,
+              sam_service_url='http://127.0.0.1:18080'):
     image = Path(image).resolve()
     out = Path(out).resolve()
     if not image.is_file():
@@ -86,7 +90,9 @@ def run_chain(image, out, *, image_id, rerun_authorization):
         raise SystemExit('invalid image id')
     if out.exists():
         raise SystemExit(f'already exists: {out}')
+    policy = normalize_capabilities(capabilities)
     out.mkdir()
+    write_json(out / 'capabilities.json', {'policy': policy, 'sha256': capability_hash(policy)})
     log = out / 'chain-timing.jsonl'
 
     def mark(event, **extra):
@@ -102,32 +108,67 @@ def run_chain(image, out, *, image_id, rerun_authorization):
         'execution_source': 'native-gpt55',
         'status': 'building',
         'visual_passed': False,
+        'capabilities': policy,
+        'capability_sha256': capability_hash(policy),
     })
 
     def send(prompt, images, run_dir, purpose):
-        return call_gpt55(prompt, images, run_dir, purpose, rerun_authorization=rerun_authorization)
+        return call_gpt55(prompt, images, run_dir, purpose,
+                          rerun_authorization=rerun_authorization,
+                          ledger=out/'model-ledger.jsonl')
 
-    root = first(image, run, send=send)
-    stage(root, image, run / 'stage-0')
+    root = first(image, run, send=first_sender or send, capabilities=policy,
+                 sam_service_url=sam_service_url)
+    with trace_context(run, policy, 'stage'):
+        invoke('common_guard', stage, root, image, run / 'stage-0', trace_method='stage')
     state = json.loads((run / 'run.json').read_text())
     state.update(latest_stage=str(run / 'stage-0'), status='baseline_rendered', baseline_svg_sha256=sha(run / 'stage-0' / 'scene.svg'))
     write_json(run / 'run.json', state)
     mark('gpt55_done', run=str(run))
-    bundle = bundle_from_stage(run, image, image_id)
+    with trace_context(run, policy, 'bundle'):
+        bundle = invoke('common_runtime', bundle_from_stage, run, image, image_id,
+                        trace_method='bundle_from_stage')
     validate_bundle(bundle)
     (out / 'bundle.json').write_text(json.dumps(bundle))
-    arrows = {image_id: {'sam_manifest': str(run / 'sam.json'), 'head_evidence': str(run / 'arrow-head-evidence.json')}}
-    try:
-        freeze_arrow_evidence(arrows[image_id], bundle['images'][image_id]['original_png'], out / 'arrow-check')
-    except (ValueError, OSError, KeyError, TypeError) as exc:
-        mark('arrow_handoff_failed', error=str(exc))
-        arrows = {}
+    arrows = {}
+    if policy['sam']:
+        arrows = {image_id: {'sam_manifest': str(run / 'sam.json'), 'head_evidence': str(run / 'arrow-head-evidence.json')}}
+        try:
+            freeze_arrow_evidence(arrows[image_id], bundle['images'][image_id]['original_png'], out / 'arrow-check')
+        except (ValueError, OSError, KeyError, TypeError) as exc:
+            mark('arrow_handoff_failed', error=str(exc))
+            arrows = {}
     (out / 'arrows.json').write_text(json.dumps(arrows))
     mark('review_start', crops=len(bundle['images'][image_id]['crop_pairs']))
     review = out / 'review' / image_id
-    prepare({'images': {image_id: bundle['images'][image_id]}}, review, upstream_arrow_specs={image_id: arrows.get(image_id)})
+    prepare({'images': {image_id: bundle['images'][image_id]}}, review,
+            upstream_arrow_specs=arrows, capabilities=policy)
     print(json.dumps({'case': image_id, 'status': 'prepared'}), flush=True)
-    result = review_run(review, request_limit=2)
+    result = review_run(review, sender=review_sender, request_limit=2, capabilities=policy)
+    if set(result.get('images', {})) != {image_id}:
+        raise ValueError('review terminal image identity mismatch')
+    terminal = result['images'][image_id]
+    source_svg, source_png = Path(terminal['svg']), Path(terminal['png'])
+    if not source_svg.is_file() or sha(source_svg) != terminal.get('revision'):
+        raise ValueError('review terminal SVG revision mismatch')
+    if not source_png.is_file():
+        raise ValueError('review terminal PNG is missing')
+    final = out/'final'; final.mkdir()
+    shutil.copyfile(source_svg, final/'scene.svg')
+    shutil.copyfile(source_png, final/'preview.png')
+    exported = dict(terminal, svg=str(final/'scene.svg'), png=str(final/'preview.png'))
+    write_json(out/'chain-result.json', {
+        'status': result.get('status'), 'images': {image_id: exported},
+        'visual_passed': False, 'capabilities': policy,
+        'capability_sha256': capability_hash(policy),
+        'source_image_sha256': sha(image), 'review_result': str(review/'result.json'),
+        'terminal_source': {'svg': str(source_svg), 'png': str(source_png),
+                            'revision': terminal['revision'], 'png_sha256': sha(source_png)},
+    })
+    state = json.loads((run/'run.json').read_text())
+    state.update(latest_stage=str(final), status=result.get('status'),
+                 chain_result=str(out/'chain-result.json'), visual_passed=False)
+    write_json(run/'run.json', state)
     mark('review_done', status=result.get('status'))
     print(str(out))
     return out

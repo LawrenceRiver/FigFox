@@ -44,9 +44,33 @@ def archived_first(original,source):
         'manual_numeric_answers':False,'not_used':['R00.svg','R00.png','postprocessed outputs','quarantine']}
     return root,provenance
 
-def first(original,run,send=call_gpt55,sam=None):
+def first(original,run,send=call_gpt55,sam=None,*,capabilities=None,sam_service_url='http://127.0.0.1:18080'):
+    from .capabilities import freeze_policy,trace_context
+    policy=freeze_policy(run,capabilities)
+    if capabilities is None and sam is not None and 'status' not in sam:
+        # Historical injected offline fixtures predate status manifests.
+        sam=dict(sam,status={'sam':'ok'},mock=True,legacy_injected_fixture=True)
+    with trace_context(run,policy,'first'):
+        return _first(original,run,send,sam,policy,sam_service_url)
+
+def _first(original,run,send,sam,policy,sam_service_url):
+    from .capabilities import invoke,trace_event,validate_svg_capabilities
+    from .capability_prompts import common_prompt,block_hashes
     from PIL import Image
-    sam=prepare_assets(original,PLUS_ROOT/'runs/sam-cache') if sam is None else sam
+    if not policy['sam']:
+        if sam and sam.get('assets'):raise ValueError('SAM disabled: supplied assets forbidden')
+        sam={'assets':[],'status':'disabled_by_assignment','source_hash':sha(original)}
+    else:
+        sam=invoke('sam_intervention',prepare_assets,original,PLUS_ROOT/'runs/sam-cache',service_url=sam_service_url) if sam is None else sam
+        status=sam.get('status')
+        if not isinstance(status,dict) or not status or any(v!='ok' for v in status.values()):
+            raise ValueError('SAM preparation failed before model generation')
+        if not sam.get('legacy_injected_fixture'):
+            if sam.get('source_hash')!=sha(original):raise ValueError('SAM source hash mismatch')
+            for asset in sam.get('assets',[]):
+                if asset.get('source_hash')!=sam['source_hash'] or asset.get('asset_hash')!=sha(asset['path']):
+                    raise ValueError('SAM asset hash mismatch')
+    write_json(run/'prompt-block-hashes.json',block_hashes(policy))
     write_json(run/'sam.json',sam)
     with Image.open(original) as im:W,H=im.size
     pictures=[a for a in sam['assets'] if a['role']!='arrow_hint'];arrows=[dict(a) for a in sam['assets'] if a['role']=='arrow_hint']
@@ -54,24 +78,40 @@ def first(original,run,send=call_gpt55,sam=None):
     import cv2
     for a in arrows:
         im=cv2.imread(a['path'],cv2.IMREAD_UNCHANGED);mask=im[:,:,3] if im.ndim==3 and im.shape[2]==4 else None
-        heads=heads_in_crop(im[:,:,:3],mask);a['head_pixels']=_head_pixels(heads);a['detected_heads']=len(heads)
+        heads=invoke('sam_intervention',heads_in_crop,im[:,:,:3],mask);a['head_pixels']=invoke('sam_intervention',_head_pixels,heads);a['detected_heads']=len(heads)
     write_json(run/'arrow-head-evidence.json',[{k:a.get(k) for k in ('id','source_crop','head_pixels','detected_heads')} for a in arrows])
     def public(items):return json.dumps([{k:a[k] for k in ('id','role','source_crop','head_pixels','detected_heads') if k in a} for a in items],ensure_ascii=False)
-    prompt=(PLUS_ROOT/'prompts/first_native.md').read_text().replace('{{CANVAS}}',f'{W} x {H}').replace('{{ARROW_LIBRARY}}',public(arrows)).replace('{{IMAGE_LIBRARY}}',public(pictures))
-    prompt+='\n'+manual()+'\nImage attachment sequence: full original figure, followed by SAM images, then SAM arrows; each group is arranged in the order of the corresponding asset table. SAM may produce false positives or missed detections.\n'
-    from .sam_board import build_boards
-    boards=build_boards(original,pictures,run/'first-sam-boards')
-    prompt+='\nThe final attached image is the original-figure overview annotated with SAM image bounding boxes, used to establish correspondence during conduction drawing and execute replacement at the end. Annotation label to asset ID mapping: '+json.dumps({a['id']:a['source_id'] for a in boards['pictures']},ensure_ascii=False)+'\nReference hrefs must use the mapped real asset IDs; the annotated overview contains no human-defined grouping or semantic answers.'
+    prompt=common_prompt(policy)+'\nCanvas: '+f'{W} x {H}'+"\nOutput only a single complete editable SVG. All base frames need stable IDs and data-plus-kind=frame. Native SVG rect positions do not position children; use transforms. Every use must have width/height matching its symbol viewBox. Keep true outer frames, text and borders not covered by replacement. Do not use a full-image screenshot as reconstruction."
+    if policy['code_methods']:
+        prompt+='\n'+manual()+"\nAvailable first declarations: data-plus-sp is JSON {kind,data} on a stable-ID g; data-plus-crop is original x,y,w,h with data-plus-representation=raster|vector; data-plus-color is JSON mapping fill/stroke to original pixel ROI [x,y,w,h]. Use complete interior ROIs, preserving gradients; omit color declarations on frames and text. Crop declarations must cover the complete independently located original object."
+    boards={'images':[],'pictures':[]}
+    if policy['sam']:
+        from .sam_board import build_boards
+        boards=invoke('sam_intervention',build_boards,original,pictures,run/'first-sam-boards')
+        prompt+='\nSAM pictures: '+public(pictures)+'\nSAM arrows (head status and dimensions evidence only): '+public(arrows)
+        prompt+='\nAttachment order: original, SAM pictures, SAM arrows, annotated overview. Asset mapping: '+json.dumps({a['id']:a['source_id'] for a in boards['pictures']})
+        prompt+='\nFor confirmed SAM references use real asset IDs, preserve source_crop x/y/width/height and position with a shared outer group transform. Construct actual visible content first, then declare data-plus-replaces="space-separated construction IDs" and data-plus-keeps="uncovered IDs" on an independent replacement image/group. If true frames are completely covered, list their IDs in data-plus-covered-frames. Replacement and replaced nodes must not contain each other. False positive or uncertain assets need not be used.'
     response=send(prompt,[Path(original)]+[Path(a['path']) for a in pictures+arrows]+boards['images'],run/'gpt55','A-derived native SVG first pass')
     root=parse(response)
+    validate_svg_capabilities(root,policy)
+    for node in root.iter():
+        forbidden=[key for key in ('data-plus-sp','data-plus-crop','data-plus-color') if key in node.attrib and not policy['code_methods']]
+        if not policy['sam'] and any(key in node.attrib for key in ('data-plus-sam-group',)):
+            forbidden.append('SAM binding')
+        if not policy['sam'] and 'data-plus-replaces' in node.attrib and 'data-plus-crop' not in node.attrib:
+            forbidden.append('SAM replacement')
+        if forbidden:
+            trace_event('rejected_request',','.join(forbidden),'rejected',node_id=node.get('id'))
+            raise ValueError('disabled declaration: '+','.join(forbidden))
     (run/'before-sam-replacement.svg').write_text(serialize(root))
     from .sam_groups import restore_source_boxes,crop_target_box
-    write_json(run/'first-sam-placement.json',restore_source_boxes(root,pictures))
-    bind_assets(root,{a['id']:a['path'] for a in pictures+arrows})
+    if policy['sam']:
+        write_json(run/'first-sam-placement.json',invoke('sam_intervention',restore_source_boxes,root,pictures))
+        invoke('sam_intervention',bind_assets,root,{a['id']:a['path'] for a in pictures+arrows})
     # SP declarations are executed by the same registered code used in repair.
     for n in list(root.iter()):
         if n.get('data-plus-sp'):
-            spec=json.loads(n.get('data-plus-sp'));part=sp_element(spec['kind'],spec['data'],n.get('id'));n.extend(list(part));n.attrib.pop('data-plus-sp')
+            spec=json.loads(n.get('data-plus-sp'));part=invoke('code_intervention',sp_element,spec['kind'],spec['data'],n.get('id'));n.extend(list(part));n.attrib.pop('data-plus-sp')
     host_crops={}
     for n in list(root.iter()):
         if n.get('data-plus-crop'):
@@ -86,7 +126,7 @@ def first(original,run,send=call_gpt55,sam=None):
                 if flag not in ('true','false'):raise ValueError('data-plus-remove-background must be true or false')
                 args['remove_background']=flag=='true'
             spec={'id':'crop_'+oid,'issue_id':'first','action':'asset','target_ids':[oid], 'args':args}
-            root,log=execute(root,[spec],[{'id':'first','target_ids':[oid]}],original,run)
+            root,log=invoke('code_intervention',execute,root,[spec],[{'id':'first','target_ids':[oid]}],original,run)
             node=nodes(root)[oid]
             for key,value in declarations.items():node.set(key,value)
             if contained_frames:node.set('data-plus-host-frame-ids',' '.join(sorted(contained_frames)))
@@ -98,11 +138,13 @@ def first(original,run,send=call_gpt55,sam=None):
         if not isinstance(samples,dict) or not samples or set(samples)-{'fill','stroke'}:raise ValueError('invalid color sampling declaration')
         for attribute,roi in samples.items():
             op={'id':'color_'+oid+'_'+attribute,'issue_id':'first_color_'+oid,'action':'sample_color','target_ids':[oid],'args':{'source_crop':roi,'attribute':attribute}}
-            root,log=execute(root,[op],[{'id':op['issue_id'],'target_ids':[oid]}],original,run/'first-color-tools');color_log.extend(log)
+            root,log=invoke('code_intervention',execute,root,[op],[{'id':op['issue_id'],'target_ids':[oid]}],original,run/'first-color-tools');color_log.extend(log)
         nodes(root)[oid].attrib.pop('data-plus-color',None)
     from .sam_replace import apply_replacements
-    write_json(run/'first-sam-replacement.json',apply_replacements(root,host_crops))
+    if policy['sam'] or host_crops:
+        write_json(run/'first-sam-replacement.json',invoke('sam_intervention' if policy['sam'] else 'code_intervention',apply_replacements,root,host_crops))
     write_json(run/'first-color-execution.json',color_log)
+    validate_svg_capabilities(root,policy,terminal=True)
     return root
 
 def run_archive(original,source,rounds=1):

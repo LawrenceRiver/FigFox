@@ -78,7 +78,9 @@ def _positive(value):
     return not isinstance(value,bool) and isinstance(value,(int,float)) and math.isfinite(value) and value>0
 
 
-def validate_contract(p, selected, allowed, objects):
+def validate_contract(p, selected, allowed, objects, *, capabilities=None):
+    from ..capabilities import reject_disabled_program
+    reject_disabled_program(p,capabilities)
     emergency={i['category'] for i in selected}&{'E','F'}
     if not emergency:return
     c=p.get('convergence',{})
@@ -101,7 +103,9 @@ def validate_contract(p, selected, allowed, objects):
     for op in c.get('repairs',[]):
         if op.get('check_id') not in ids or op.get('method') not in ('tp_align','tp_fit','tp_transform') or not op.get('target_ids') or not set(op['target_ids'])<=objects or not isinstance(op.get('args'),dict):raise ValueError('invalid convergence repair scope')
 
-def converge(root,p,issue,original,folder,aliases,results):
+def converge(root,p,issue,original,folder,aliases,results,*,capabilities=None):
+    from ..capabilities import reject_disabled_program,invoke
+    reject_disabled_program(p,capabilities)
     c=p['convergence'];history=[];clean=0
     for iteration in range(c['max_iterations']):
         failed=[];checks=[]
@@ -127,5 +131,5 @@ def converge(root,p,issue,original,folder,aliases,results):
             continue
         clean=0;repairs=[op for op in c.get('repairs',[]) if op['check_id'] in failed]
         if not repairs:raise ValueError('emergency unresolved: '+','.join(failed))
-        for j,op in enumerate(repairs):_perform(root,op,issue,original,folder/f'loop-{iteration}-{j}',aliases,results)
+        for j,op in enumerate(repairs):invoke('code_intervention',_perform,root,op,issue,original,folder/f'loop-{iteration}-{j}',aliases,results)
     raise ValueError('emergency unresolved: convergence limit reached')

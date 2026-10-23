@@ -221,7 +221,14 @@ def _has_arrow(program):
     return walk(program.get('args', {}).get('operations'))
 
 
-def validate_programs(programs,issues,images,prior_executed=None):
+def validate_programs(programs,issues,images,prior_executed=None,*,capabilities=None):
+    from ..capabilities import normalize_capabilities,reject_disabled_program
+    policy=normalize_capabilities(capabilities)
+    for program in programs:
+        reject_disabled_program(program,policy)
+        if not policy['code_methods'] and isinstance(program.get('source_code'),str):
+            from .sandbox import validate_stdlib_source
+            validate_stdlib_source(program['source_code'])
     if not isinstance(programs,list) or not isinstance(issues,list):raise ValueError('programs and issues must be arrays')
     issue_map={i['id']:i for i in issues};last_order={};scope={};issue_sets={}
     result_ids={p.get('id') for p in programs if isinstance(p,dict) and isinstance(p.get('id'),str)}
@@ -245,8 +252,8 @@ def validate_programs(programs,issues,images,prior_executed=None):
         selected=[issue_map[r] for r in refs]
         categories=[i.get('category') for i in selected]
         if any(c not in ('A','B','C','D','E','F','S1','S2','S3','S4') for c in categories):raise ValueError('unknown issue category')
-        if 'S1' in categories and not _has_cuboid_replace(p):raise ValueError('regular solid must be replaced with SP cuboid or lattice')
-        if 'D' in categories and not _has_arrow(p):raise ValueError('arrow must be rebuilt with SP arrow')
+        if policy['code_methods'] and 'S1' in categories and not _has_cuboid_replace(p):raise ValueError('regular solid must be replaced with SP cuboid or lattice')
+        if policy['code_methods'] and 'D' in categories and not _has_arrow(p):raise ValueError('arrow must be rebuilt with SP arrow')
         if set(categories) in ({'D'}, {'S2'}):
             p['depends_on']=[]
             p.pop('when',None)
@@ -292,7 +299,7 @@ def validate_programs(programs,issues,images,prior_executed=None):
         convergence_refs=_measurement_references(p.get('convergence',{}))
         if not convergence_refs<=read_scope:raise ValueError('convergence measurement references unknown current object')
         read_refs.update(convergence_refs)
-        validate_contract(p,selected,read_scope,objects)
+        validate_contract(p,selected,read_scope,objects,capabilities=policy)
         for check in p.get('convergence',{}).get('alignment_checks',[]):
             refs=check.get('target_ids',[])+check.get('reference_ids',[])
             if not set(refs)<=read_scope:raise ValueError('alignment check references unknown current object')
@@ -347,16 +354,21 @@ def validate_programs(programs,issues,images,prior_executed=None):
     return issue_sets
 
 
-def execute_programs(programs,issues,images,folder,prior_executed=None):
+def execute_programs(programs,issues,images,folder,prior_executed=None,*,capabilities=None):
     folder=Path(folder).resolve();folder.mkdir(parents=True,exist_ok=True)
     with (folder/'execution.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
-        return _execute(programs,issues,images,folder,prior_executed)
+        from ..capabilities import freeze_policy,trace_context
+        policy=freeze_policy(folder,capabilities)
+        with trace_context(folder,policy,'repair_execution'):
+            return _execute(programs,issues,images,folder,prior_executed,capabilities=policy)
 
 
-def _execute(programs,issues,images,folder,prior_executed=None):
-    selected=validate_programs(programs,issues,images,prior_executed=prior_executed)
-    signature=hashlib.sha256(json.dumps({'programs':programs,'issues':issues,'images':images},sort_keys=True).encode()).hexdigest()
+def _execute(programs,issues,images,folder,prior_executed=None,*,capabilities=None):
+    from ..capabilities import normalize_capabilities,invoke,trace_event,capability_hash,set_trace_details
+    policy=normalize_capabilities(capabilities)
+    selected=validate_programs(programs,issues,images,prior_executed=prior_executed,capabilities=policy)
+    signature=hashlib.sha256(json.dumps({'programs':programs,'issues':issues,'images':images,'capabilities':policy},sort_keys=True).encode()).hexdigest()
     path=folder/'state.json'
     if path.exists():
         state=json.loads(path.read_text())
@@ -373,6 +385,7 @@ def _execute(programs,issues,images,folder,prior_executed=None):
         pid=p['id'];im=p['image_id']
         if pid in done:continue
         current=state['images'][im]
+        set_trace_details(program_id=pid,issue_ids=p['issue_ids'],before_revision=current['revision'],program_sha256=hashlib.sha256(json.dumps(p,sort_keys=True).encode()).hexdigest())
         record={'program_id':pid,'issue_ids':p['issue_ids'],'image_id':im,'phase':p['phase'],'route':p['route'],'before_revision':current['revision'],'after_revision':current['revision'],'target_ids':p['target_ids'],'rcd_predescription':p.get('rcd_predescription',''),'visual_acceptance':'pending','read_only_references':p.get('read_only_references',[]),'compiled_scope':deepcopy(p.get('compiled_scope')),'effective_target_ids':_execution_targets(p)}
         record['host_normalizations']=deepcopy(p.get('host_normalizations',[]))
         trigger=p.get('when');trigger_matched=True
@@ -389,7 +402,7 @@ def _execute(programs,issues,images,folder,prior_executed=None):
                 local_results=deepcopy(state['results'])
                 aliases=deepcopy(state['aliases'][im]);work=folder/f'program-{index:04d}';work.mkdir(exist_ok=True)
                 rules=p.get('relations',[])
-                initial=_relation_report(before,rules,aliases) if rules else None
+                initial=invoke('common_guard',_relation_report,before,rules,aliases) if rules else None
                 if p['route']=='generated_python':
                     attempt=work/'sandbox'
                     if attempt.exists():
@@ -398,10 +411,14 @@ def _execute(programs,issues,images,folder,prior_executed=None):
                         while (work/f'sandbox-{n}').exists():n+=1
                         attempt=work/f'sandbox-{n}'
                     snapshot_ids=sorted({_resolve_id(t,aliases) for q in selected[pid] for t in q.get('target_ids',[])+q.get('neighbor_ids',[])}|{_resolve_id(t,aliases) for t in p.get('read_only_references',[])})
-                    tp_snapshot=measure_tight(trial,snapshot_ids)
-                    tp_snapshot['revision']=current['revision']
-                    result=run_code(p['source_code'],current['svg'],attempt,current_tp=tp_snapshot)
+                    tp_snapshot=None
+                    if policy['code_methods']:
+                        tp_snapshot=invoke('code_intervention',measure_tight,trial,snapshot_ids)
+                        tp_snapshot['revision']=current['revision']
+                    result=invoke('common_runtime',run_code,p['source_code'],current['svg'],attempt,current_tp=tp_snapshot,capabilities=policy)
                     record['tool_receipt']=result
+                    for invocation in result.get('library_invocations',[]):
+                        trace_event(invocation['category'],invocation['method'],invocation['status'],**{k:v for k,v in invocation.items() if k not in ('category','method','status')})
                     if result.get('status')!='executed':raise ValueError(result.get('error','sandbox execution failed'))
                     trial=ET.fromstring(Path(result['svg']).read_text());assert_target_scope(before,trial,[_resolve_id(t,aliases) for t in p['target_ids']])
                     old_images={n.get('href') or n.get('{http://www.w3.org/1999/xlink}href') for n in before.iter() if n.tag.rsplit('}',1)[-1]=='image'}
@@ -418,21 +435,21 @@ def _execute(programs,issues,images,folder,prior_executed=None):
                     executable = [{'method':'bp_program','target_ids':_execution_targets(p),'args':{'operations':ops}}] if len(ops)>1 and all(op['method'] in MUTATIONS and not op.get('id') for op in ops) else ops
                     for op_index,op in enumerate(executable):
                         step=dict(op)
-                        result,args,reports=_perform(trial,step,issue,images[im]['original'],work/f'op-{op_index}',aliases,local_results)
+                        result,args,reports=invoke('code_intervention',_perform,trial,step,issue,images[im]['original'],work/f'op-{op_index}',aliases,local_results,trace_method=step['method'])
                         if op.get('id'):local_results[op['id']]=deepcopy(result)
                         results.append(result);actual.append(args)
                     result=results[0] if len(ops)==1 else {'operations':results};record['actual_parameters']=actual
                 if any(q['category'] in ('E','F') for q in selected[pid]):
                     issue={'id':pid,'category':selected[pid][0]['category'],'target_ids':_execution_targets(p),'neighbor_ids':list({t for q in selected[pid] for t in q.get('neighbor_ids',[])}),'description':' / '.join(q.get('description','') for q in selected[pid]),'original_evidence':' / '.join(str(q.get('original_evidence','')) for q in selected[pid])}
-                    record['convergence']=converge(trial,p,issue,images[im]['original'],work,aliases,local_results)
+                    record['convergence']=invoke('common_guard',converge,trial,p,issue,images[im]['original'],work,aliases,local_results,capabilities=policy)
                 validate(trial)
                 if rules:
-                    post=_relation_report(trial,rules,aliases)
+                    post=invoke('common_guard',_relation_report,trial,rules,aliases)
                     focus={_resolve_id(t,aliases) for t in _execution_targets(p)}
                     live={n.get('id') for n in trial.iter() if n.get('id')}
                     focus.update(descendants(trial,list(focus & live)))
                     target_rules=[r for r in rules if {_resolve_id(r['subject_id'],aliases),_resolve_id(r['object_id'],aliases)} & focus]
-                    record['tp_check']=_relation_report(trial,target_rules,aliases)
+                    record['tp_check']=invoke('common_guard',_relation_report,trial,target_rules,aliases)
                     record['neighbor_check']=compare_reports(initial,post)
                     record['relation_check']=post
                     if record['neighbor_check']['new_alarm_ids'] or record['neighbor_check']['missing_relation_ids']:raise ValueError('new neighbor TP alarm; transaction rolled back')
@@ -445,6 +462,7 @@ def _execute(programs,issues,images,folder,prior_executed=None):
                 state['images'][im]=checkpoint;state['aliases'][im]=aliases;local_results[pid]=result;state['results']=local_results
             except Exception as exc:
                 record.update(status='failed',error=str(exc),rolled_back=True)
+        trace_event('common_runtime','program_transaction',record['status'],program_id=pid,issue_ids=p['issue_ids'],before_revision=record['before_revision'],after_revision=record['after_revision'],program_sha256=hashlib.sha256(json.dumps(p,sort_keys=True).encode()).hexdigest())
         state['rcd'].append(record);done[pid]=record;_atomic_json(path,state)
     # Earlier convergence can be invalidated by later edits. Audit the final scene.
     for p in programs:
@@ -453,7 +471,7 @@ def _execute(programs,issues,images,folder,prior_executed=None):
         audit=deepcopy(p);audit['convergence']['repairs']=[];audit['convergence']['max_iterations']=2
         try:
             final_root=ET.fromstring(Path(state['images'][p['image_id']]['svg']).read_text())
-            rec['final_scene_check']=converge(final_root,audit,{},images[p['image_id']]['original'],folder/'final-audit',state['aliases'][p['image_id']],{})
+            rec['final_scene_check']=invoke('common_guard',converge,final_root,audit,{},images[p['image_id']]['original'],folder/'final-audit',state['aliases'][p['image_id']],{},capabilities=policy)
         except Exception as exc:
             rec['final_scene_check']={'status':'unresolved','error':str(exc)}
             rec['convergence']['status']='invalidated_by_later_edit'

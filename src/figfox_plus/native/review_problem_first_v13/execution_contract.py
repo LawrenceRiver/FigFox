@@ -4,8 +4,10 @@ Contains no figure-specific observations, target coordinates or acceptance data.
 """
 
 
-def build_execution_contract():
-    return {
+def build_execution_contract(capabilities=None):
+    from ..capabilities import normalize_capabilities
+    policy=normalize_capabilities(capabilities)
+    result = {
         'generated_python': {
             'INPUT_SVG': 'str: filesystem path to the current input SVG file, not XML source text',
             'OUTPUT_SVG': 'str: filesystem path where the resulting complete SVG must be written',
@@ -46,3 +48,8 @@ def build_execution_contract():
             'execution_boundary': 'These are JSON data expressions resolved by native module operations. They are not Python syntax. In generated_python, compute ordinary Python numbers from the provided scene/snapshot instead.',
         },
     }
+
+    if not policy['code_methods']:
+        result['generated_python'].pop('CURRENT_TP')
+        result.pop('expressions')
+    return result

@@ -15,6 +15,9 @@ def main(argv=None):
     chain.add_argument('--out',required=True)
     chain.add_argument('--id',required=True,help='short image id, for example unet')
     chain.add_argument('--rerun-authorization',required=True,help='one-time string allowing GPT-5.5 to run again on an original it has already seen')
+    chain.add_argument('--sam', choices=('on','off'), default='on', help='SAM evidence and assets capability')
+    chain.add_argument('--code-methods', choices=('on','off'), default='on', help='external SVGplus/TP/method capability bundle')
+    chain.add_argument('--sam-service-url', default='http://127.0.0.1:18080', help='existing SAM service; no automatic paid replacement')
     resume=commands.add_parser('resume');resume.add_argument('--run',required=True);resume.add_argument('--rounds',type=int,default=1,choices=(1,))
     prep=commands.add_parser('repair-prepare',help='prepare all images and 12 inputs locally; no API request')
     prep.add_argument('--sources',required=True);prep.add_argument('--run',required=True)
@@ -66,7 +69,9 @@ def main(argv=None):
         print(run_image(args.image,args.rounds));return 0
     if args.command=='chain':
         from .native.chain import run_chain
-        run_chain(args.image,args.out,image_id=args.id,rerun_authorization=args.rerun_authorization)
+        run_chain(args.image,args.out,image_id=args.id,rerun_authorization=args.rerun_authorization,
+                  capabilities={'version':'capabilities-v1','sam':args.sam=='on','code_methods':args.code_methods=='on'},
+                  sam_service_url=args.sam_service_url)
         return 0
     if args.command in ('resume','report'):
         import json

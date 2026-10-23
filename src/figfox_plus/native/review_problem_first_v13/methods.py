@@ -129,7 +129,7 @@ def _digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
-def build_method_pack(qlist=None, registry=None):
+def build_method_pack(qlist=None, registry=None, *, capabilities=None):
     """Return a detached JSON-compatible versioned method pack.
 
     Optional arguments verify the caller's taxonomy/registry against this
@@ -137,6 +137,17 @@ def build_method_pack(qlist=None, registry=None):
     into the model context. Sources are readable implementation excerpts, not a
     standalone runtime or a grant to execute code outside an isolated executor.
     """
+    from ..capabilities import normalize_capabilities,capability_hash
+    from ..capability_prompts import COMMON_QUALITY,COMMON_CONDITIONAL_POLICY
+    from .execution_contract import build_execution_contract
+    policy=normalize_capabilities(capabilities)
+    if not policy['code_methods']:
+        pack={'format':'review-method-pack-v1','assignment':policy,'capability_hash':capability_hash(policy),
+              'runtime_contract':build_execution_contract(policy),'inspection_order':list(ORDER),
+              'sources':{},'constructors':[],'helpers':{},'operation_contract':{},
+              'cards':[],'common_quality':COMMON_QUALITY,'common_conditional_policy':COMMON_CONDITIONAL_POLICY}
+        pack['version_hash']=_digest(pack)
+        return pack
     if qlist is not None and [q.get('id') for q in qlist] != list(ORDER):
         raise ValueError('Q list must contain the five priority categories')
     if registry is not None and (set(registry) != set(CATALOG) or any(
@@ -213,7 +224,7 @@ def build_method_pack(qlist=None, registry=None):
         cards.append(card)
     from .execution_contract import build_execution_contract
     pack = {
-        'runtime_contract':build_execution_contract(),
+        'runtime_contract':build_execution_contract(policy),'assignment':policy,'capability_hash':capability_hash(policy),
         'format':'review-method-pack-v1', 'inspection_order':list(ORDER),
         'repair_order':{'main':['A','B','S1','E','F'],'dependency_insertions':[]},
         'principles':{'tp_domain':'current_svg_only','diagnostic_crops':'immutable upstream paired inputs; never generated here',
