@@ -13,7 +13,7 @@ from pathlib import Path
 from .native.capabilities import capability_hash, normalize_capabilities
 
 
-SCHEMA = 'figfox-historical-four-cell-plan-v1'
+SCHEMA = 'figfox-historical-four-cell-plan-v2'
 CELL_ORDER = ('S0C0', 'S1C0', 'S0C1', 'S1C1')
 FC_BINS = ('C1_low', 'C2_medium_low', 'C3_medium_high', 'C4_high')
 SHA256 = re.compile(r'[0-9a-f]{64}\Z')
@@ -135,10 +135,34 @@ def build_plan(manifest_path, *, expected_count=80):
                       'max_output_tokens': 32768},
             'review': {'model': 'deepseek-flash', 'reasoning_effort': 'high',
                        'max_output_tokens': 64000,
-                       'context_preflight_may_lower_output_limit': True,
+                       'context_preflight_may_lower_output_limit': False,
+                       'context_preflight_policy': 'admit full requested max_tokens or block before HTTP',
                        'base_requests': ['DS1', 'DS2'],
                        'conditional_followup': 'existing receipt-driven priority trigger',
                        'max_requests': 3},
+            'renderer': {
+                'engine': 'Chromium', 'playwright_version': '1.62.1',
+                'executable_policy': 'PLUS_CHROMIUM if set, otherwise Playwright-installed Chromium',
+                'svg_font_policy': 'preserve authored font-family; resolve against one pinned host font inventory',
+                'runtime_manifest': 'external manifest required before paid execution',
+                'runtime_manifest_verified': False,
+            },
+            'runtime_limits': {
+                'first_http_timeout_seconds': 1800,
+                'review_http_timeout_seconds': 300,
+                'native_render_timeout_seconds': 60,
+                'browser_measure_timeout_seconds': 45,
+                'generated_python_wall_timeout_seconds': 20,
+                'generated_python_max_output_bytes': 20_000_000,
+                'generated_python_rss_limit_mib': 512,
+            },
+            'sampling': {
+                'first_temperature': 'omitted; provider default unverified',
+                'first_seed': 'omitted; provider default unverified',
+                'review_temperature': 'omitted; provider default unverified',
+                'review_seed': 'omitted; provider default unverified',
+                'deterministic_sampling_claim': False,
+            },
             'quality_policy': 'same common quality and conditional rules in all four cells',
             'quality_policy_hash': 'verify_equal_at_execution',
             'prompt_comparison': 'availability manifest, tool descriptions, and SAM evidence vary by capability; full prompt bytes are not claimed identical',
@@ -148,6 +172,8 @@ def build_plan(manifest_path, *, expected_count=80):
             'capability_hash_recheck': 'required before each cell',
             'real_sam_service_and_manifest': 'required before paid generation for SAM-on cells',
             'cumulative_budget_bound_and_reservation': 'required before paid generation',
+            'runtime_manifest': 'bind one host, OS/Node versions, browser executable SHA-256, and font inventory/file hashes for every cell before paid generation',
+            'runtime_manifest_verified': False,
             'actual_sam_verified': False, 'budget_verified': False,
             'no_automatic_retry': True,
             'runtime_records_required': ['attempt identity', 'actual intervention counts',

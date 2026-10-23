@@ -60,6 +60,53 @@ def test_four_frozen_cells_per_historical_source_with_balanced_order(tmp_path):
     assert plan['common_config']['review']['max_requests'] == 3
 
 
+def test_common_runtime_sampling_and_context_policy_are_explicit(tmp_path, monkeypatch):
+    import socket
+
+    path, manifest = fixture_manifest(tmp_path)
+    allowed = {path.resolve(), *(Path(sample['source_image_path']).resolve()
+                                 for sample in manifest['samples'])}
+    original_open = Path.open
+
+    def only_historical_inputs(self, *args, **kwargs):
+        if self.resolve() not in allowed:
+            pytest.fail(f'unexpected file read: {self}')
+        return original_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'open', only_historical_inputs)
+    monkeypatch.setattr(socket, 'socket', lambda *a, **k: pytest.fail('network opened'))
+    plan = build_plan(path, expected_count=2)
+    common = plan['common_config']
+    assert common['renderer'] == {
+        'engine': 'Chromium',
+        'playwright_version': '1.62.1',
+        'executable_policy': 'PLUS_CHROMIUM if set, otherwise Playwright-installed Chromium',
+        'svg_font_policy': 'preserve authored font-family; resolve against one pinned host font inventory',
+        'runtime_manifest': 'external manifest required before paid execution',
+        'runtime_manifest_verified': False,
+    }
+    assert common['runtime_limits'] == {
+        'first_http_timeout_seconds': 1800,
+        'review_http_timeout_seconds': 300,
+        'native_render_timeout_seconds': 60,
+        'browser_measure_timeout_seconds': 45,
+        'generated_python_wall_timeout_seconds': 20,
+        'generated_python_max_output_bytes': 20_000_000,
+        'generated_python_rss_limit_mib': 512,
+    }
+    assert common['sampling'] == {
+        'first_temperature': 'omitted; provider default unverified',
+        'first_seed': 'omitted; provider default unverified',
+        'review_temperature': 'omitted; provider default unverified',
+        'review_seed': 'omitted; provider default unverified',
+        'deterministic_sampling_claim': False,
+    }
+    assert common['review']['context_preflight_may_lower_output_limit'] is False
+    assert common['review']['context_preflight_policy'] == 'admit full requested max_tokens or block before HTTP'
+    assert plan['execution_prerequisites']['runtime_manifest_verified'] is False
+    assert plan['paid_execution_allowed'] is False
+
+
 @pytest.mark.parametrize('mutation', [
     lambda m: m['samples'][1].update(sample_id=m['samples'][0]['sample_id']),
     lambda m: m['samples'][1].update(historical_order=1),

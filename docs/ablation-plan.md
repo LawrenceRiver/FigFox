@@ -29,18 +29,36 @@ The common requested configuration is GPT-5.5 at medium effort with 32,768
 maximum output tokens for the first pass, and DeepSeek-flash at high effort
 with a requested 64,000 output-token maximum for review. Review follows DS1,
 DS2, and the existing conditional receipt-driven followup, capped at three
-requests. The eventual runtime must apply context-capacity preflight and
-record the actual request limits. All cells use the same common quality and
+requests. The v13 review context preflight admits the full requested
+`max_tokens` or blocks before HTTP; it never lowers that output limit. The
+eventual runtime must record the actual request limits. Both transports omit
+temperature and seed, leaving provider defaults unverified; this plan makes
+no deterministic-sampling claim. All cells use the same common quality and
 conditional rules. Capability availability, relevant tool descriptions, and
 SAM evidence differ, so the plan does not claim byte-identical prompts. It
 requires the runtime to verify shared policy hashes.
 
+The common renderer policy uses Chromium through Playwright 1.62.1. Runtime
+selection uses `PLUS_CHROMIUM` when set, otherwise Playwright's installed
+Chromium. Authored SVG `font-family` values are preserved and resolved using
+the pinned execution host's fonts. Before paid execution, an external runtime
+manifest must bind the same host and record OS/Node versions, browser executable
+SHA-256, and font inventory and file hashes for all cells. The planner has no
+verified runtime manifest, so it does not claim matching fonts across hosts.
+The common timeouts are 1,800 seconds for first-pass HTTP, 300 seconds for
+review HTTP, 60 seconds for native rendering, 45 seconds for browser
+measurement, and 20 seconds for generated Python. The Python sandbox also
+limits output to 20,000,000 bytes and monitors for 512 MiB RSS. These values
+come from the current transport, renderer, measurement, and v13 sandbox code;
+the future executor must verify that it applies them to every cell.
+
 The saved artifact is deliberately `status: planned` and
 `paid_execution_allowed: false`. Its SAM service and cumulative budget are
 unverified. Before paid generation, a separate executor must recheck source
-and capability hashes, verify a real SAM service and reusable manifest for
-SAM-on cells, establish a cumulative budget bound and reservation, and log
-every unique attempt. Runtime evidence must include actual intervention
-counts, usage, elapsed time, terminal committed image hashes, and explicit
+and capability hashes, verify the bound runtime manifest, verify a real SAM
+service and reusable manifest for SAM-on cells, establish a cumulative budget
+bound and reservation, and log every unique attempt. Runtime evidence must
+include actual intervention counts, usage, elapsed time, terminal committed
+image hashes, and explicit
 unknown or unreviewed outcomes. The plan does not estimate an unsupported
 cost or authorize retries.
