@@ -62,6 +62,39 @@ def _feedback_brief(feedback):
 def _hash(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def _committed_followup(follow_dir):
+    """Read the last durable follow-up artifact without invoking the model."""
+    sources=(follow_dir/'followup-result.json',follow_dir/'execution/result.json',follow_dir/'execution/state.json')
+    for source in sources:
+        if not source.exists():continue
+        committed=json.loads(source.read_text())
+        images=committed.get('images') or {}
+        if not images:continue
+        for image in images.values():
+            if _hash(image['svg'])!=image['revision']:
+                raise ValueError('followup committed SVG revision mismatch')
+        if source.name=='followup-result.json':return committed
+        return {'opened':True,'status':'recovered_committed_execution',
+                'images':images,'rcd':committed.get('rcd',[]),'recovered_from':str(source)}
+    return None
+
+
+def _adopt_followup(result,followup):
+    result['followup']=followup
+    if followup.get('images'):
+        result['images']=followup['images']
+        for receipt in followup.get('rcd',[]):
+            if receipt not in result['rcd']:result['rcd'].append(receipt)
+        result['terminal_source']='followup'
+        from .followup import _landed
+        critical=[i for i in result['issues'] if i.get('decision')=='confirmed' and i.get('category') in ('E','F','B','A','S1','D','S2')]
+        result['emergency_unresolved']=[i['id'] for i in critical if not _landed(i,result['rcd'])]
+        if not result['emergency_unresolved'] and result['status']=='emergency_unresolved':
+            result['status']='visual_review_pending'
+    else:result['terminal_source']='review'
+    return result
+
+
 def _assets(inputs):
     for im in inputs['images'].values():
         for key in ('original_png','current_svg','current_png','current_tp'):yield im[key]
@@ -294,7 +327,21 @@ def _run(task_dir,*,sender=None,request_limit=2,capabilities=None):
         if build_method_pack(capabilities=policy)['version_hash']!=json.loads((root/'methods.json').read_text())['version_hash']:
             raise ValueError('method_library_changed_since_prepare')
         result_file=root/'result.json'
-        if result_file.exists():return json.loads(result_file.read_text())
+        if result_file.exists():
+            result=json.loads(result_file.read_text())
+            follow_dir=root.parent/(root.name+'-followup')
+            committed=_committed_followup(follow_dir)
+            if committed:
+                same_images=result.get('images')==committed['images']
+                same_receipts=all(receipt in result.get('rcd',[]) for receipt in committed.get('rcd',[]))
+                # An initialized execution state alone is not a committed follow-up.
+                if committed.get('rcd') or not same_images or (follow_dir/'followup-result.json').exists():
+                    if not (same_images and same_receipts and result.get('terminal_source')=='followup'):
+                        _adopt_followup(result,committed)
+                        write_json(result_file,result)
+                        from .report import write_report
+                        write_report(root,inputs,result['issues'],result['rcd'],result['coverage'],output_images=result['images'])
+            return result
         messages=json.loads((root/'messages.json').read_text());schedule=json.loads((root/'schedule.json').read_text())
         images={k:{'svg':i['current_svg']['path'],'png':i['current_png']['path'],'original':i['original_png']['path'],'revision':i['current_revision']} for k,i in inputs['images'].items()}
         all_issues=[];all_rcd=[];all_rejected=[];review_audits=[];coverage={'records_complete':False,'visual_acceptance':'not_assessed'};first_issues=[]
@@ -392,21 +439,11 @@ def _run(task_dir,*,sender=None,request_limit=2,capabilities=None):
         except Exception as exc:
             result['followup']={'opened':True,'status':'failed','error':type(exc).__name__+': '+str(exc)}
             # A later failure must not hide an already committed transaction.
-            for saved in (follow_dir/'execution/result.json',follow_dir/'execution/state.json'):
-                if not saved.exists():continue
-                committed=json.loads(saved.read_text())
-                for image in committed['images'].values():
-                    if _hash(image['svg'])!=image['revision']:raise ValueError('followup committed SVG revision mismatch')
-                result['followup'].update(images=committed['images'],rcd=committed.get('rcd',[]),recovered_from=str(saved))
-                break
-        if result['followup'].get('images'):
-            result['images']=result['followup']['images']
-            result['rcd'].extend(result['followup'].get('rcd',[]))
-            result['terminal_source']='followup'
-            from .followup import _landed
-            result['emergency_unresolved']=[i['id'] for i in critical if not _landed(i,result['rcd'])]
-            if not result['emergency_unresolved'] and result['status']=='emergency_unresolved':result['status']='visual_review_pending'
-        else:result['terminal_source']='review'
+            committed=_committed_followup(follow_dir)
+            if committed:
+                result['followup'].update(images=committed['images'],rcd=committed.get('rcd',[]),
+                                          recovered_from=committed.get('recovered_from',str(follow_dir/'followup-result.json')))
+        _adopt_followup(result,result['followup'])
         write_json(result_file,result)
         write_report(root,inputs,all_issues,result['rcd'],coverage,output_images=result['images'])
         return result
