@@ -7,11 +7,10 @@ from copy import deepcopy
 import hashlib
 import json
 import math
-import os
 from pathlib import Path
-import shutil
 import subprocess
 import xml.etree.ElementTree as ET
+from ..runtime import browser_environment, node_command
 from .current_line_facts import build_line_facts
 
 
@@ -59,11 +58,9 @@ def build_coincident_path_candidates(svg_path, facts=None, *, distance_fraction=
             if child.tag.rsplit('}',1)[-1] in {'script','foreignObject','animate','animateMotion','animateTransform','set'}:node.remove(child)
         for attr in list(node.attrib):
             if attr.lower().startswith('on'):del node.attrib[attr]
-    env=os.environ.copy()
-    env.setdefault('PLUS_PLAYWRIGHT_MODULE',str(Path.home()/'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'))
-    env.setdefault('PLUS_CHROMIUM',str(Path.home()/'Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell'))
+    env=browser_environment()
     runtime=Path(__file__).resolve().parents[3]/'runtime/coincident-path-samples.cjs'
-    run=subprocess.run([shutil.which('node') or str(Path.home()/'.node/bin/node'),str(runtime)],input=json.dumps({'svg':ET.tostring(root,encoding='unicode'),'ids':list(eligible),'count':257}),text=True,capture_output=True,env=env,timeout=120)
+    run=subprocess.run([node_command(),str(runtime)],input=json.dumps({'svg':ET.tostring(root,encoding='unicode'),'ids':list(eligible),'count':257}),text=True,capture_output=True,env=env,timeout=120)
     if run.returncode:raise ValueError('offline shaft sampling failed: '+run.stderr[:1000])
     samples=json.loads(run.stdout);resampled={};envelopes={r['object_id']:r['stroke_envelope'] for r in samples['records']}
     for record in samples['records']:

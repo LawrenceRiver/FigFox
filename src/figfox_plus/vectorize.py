@@ -1,13 +1,12 @@
 """Measured local tracing backends; vector status checked independently of backend."""
 import json
 import subprocess
-import shutil
 import time
-import sys
 from pathlib import Path
 import xml.etree.ElementTree as ET
 from PIL import Image
 from .state import PLUS_ROOT,write_json
+from .runtime import node_command, vector_python
 
 
 def vectorize_asset(asset,backend,out_dir):
@@ -19,14 +18,14 @@ def vectorize_asset(asset,backend,out_dir):
                     filter_speckle=0,color_precision=8,layer_difference=4,
                     corner_threshold=60,length_threshold=3.5,max_iterations=10,
                     splice_threshold=30,path_precision=4)
-        result=subprocess.run([str(PLUS_ROOT/'.venv-vector/bin/python'),str(PLUS_ROOT/'runtime/vtracer_runner.py')],input=json.dumps(dict(source=asset['path'],target=str(path),parameters=params)),text=True,capture_output=True,timeout=60)
+        result=subprocess.run([vector_python(),str(PLUS_ROOT/'runtime/vtracer_runner.py')],input=json.dumps(dict(source=asset['path'],target=str(path),parameters=params)),text=True,capture_output=True,timeout=60)
         if result.returncode:raise ValueError('vtracer failed exit '+str(result.returncode)+': '+result.stderr[:500])
         version='0.6.12'
     elif backend=='imagetracerjs':
         params=dict(numberofcolors=32,ltres=1,qtres=1,pathomit=2)
         with Image.open(asset['path']) as im:
             im=im.convert('RGBA');payload={'image':{'width':im.width,'height':im.height,'data':list(im.tobytes())},'options':params}
-        result=subprocess.run([shutil.which('node') or 'node',str(PLUS_ROOT/'runtime/vectorize.cjs')],input=json.dumps(payload),text=True,capture_output=True,timeout=60)
+        result=subprocess.run([node_command(),str(PLUS_ROOT/'runtime/vectorize.cjs')],input=json.dumps(payload),text=True,capture_output=True,timeout=60)
         if result.returncode:raise ValueError('imagetracer failed: '+result.stderr[:500])
         path.write_text(result.stdout);version='1.2.6'
     elif backend=='pixelruns':

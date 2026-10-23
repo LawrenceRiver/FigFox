@@ -1,9 +1,9 @@
 // Actual rendered alpha bounds, measured independently from layout/getBBox estimates.
 const fs=require('fs');
-const {chromium}=require(process.env.PLUS_PLAYWRIGHT_MODULE);
+const {chromium}=require(process.env.PLUS_PLAYWRIGHT_MODULE || 'playwright');
 (async()=>{
  const input=JSON.parse(fs.readFileSync(0,'utf8'));
- const browser=await chromium.launch({executablePath:process.env.PLUS_CHROMIUM,headless:true});
+ const browser=await chromium.launch({...(process.env.PLUS_CHROMIUM ? {executablePath:process.env.PLUS_CHROMIUM} : {}),headless:true});
  try {
   const context=await browser.newContext({viewport:{width:1800,height:1400}});
   await context.route('**/*',r=>r.abort());

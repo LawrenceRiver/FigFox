@@ -2,13 +2,12 @@ import base64
 from copy import deepcopy
 import hashlib
 import json
-import os
 from pathlib import Path
 import re
-import shutil
 import subprocess
 import xml.etree.ElementTree as ET
 from ..state import PLUS_ROOT
+from ..runtime import browser_environment, node_command
 SVG='http://www.w3.org/2000/svg'
 ET.register_namespace('',SVG)
 HREF='{http://www.w3.org/1999/xlink}href'
@@ -44,10 +43,8 @@ def validate(root):
         if tag(n)=='style' and re.search(r'@import|url\(\s*[\"\']?(?!#)[^)]',n.text or '',re.I):raise ValueError('external stylesheet resource')
 
 def measure(root,png=None):
-    validate(root);env=os.environ.copy()
-    env.setdefault('PLUS_PLAYWRIGHT_MODULE',str(Path.home()/'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright'))
-    env.setdefault('PLUS_CHROMIUM',str(Path.home()/'Library/Caches/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-mac-arm64/chrome-headless-shell'))
-    p=subprocess.run([shutil.which('node') or str(Path.home()/'.node/bin/node'),str(PLUS_ROOT/'runtime/native.cjs')],input=json.dumps({'svg':serialize(root),'png':str(png) if png else None}),text=True,capture_output=True,env=env,timeout=60)
+    validate(root);env=browser_environment()
+    p=subprocess.run([node_command(),str(PLUS_ROOT/'runtime/native.cjs')],input=json.dumps({'svg':serialize(root),'png':str(png) if png else None}),text=True,capture_output=True,env=env,timeout=60)
     if p.returncode:raise ValueError(p.stderr[:2000])
     return json.loads(p.stdout)
 
