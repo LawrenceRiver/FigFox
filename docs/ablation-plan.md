@@ -46,8 +46,9 @@ manifest must bind the same host and record OS/Node versions, browser executable
 SHA-256, and font inventory and file hashes for all cells. The planner has no
 verified runtime manifest, so it does not claim matching fonts across hosts.
 The common timeouts are 1,800 seconds for first-pass HTTP, 300 seconds for
-review HTTP, 60 seconds for native rendering, 45 seconds for browser
-measurement, and 20 seconds for generated Python. The Python sandbox also
+review HTTP, 60 seconds for native rendering, 45 seconds for the legacy browser
+measurement helper, 900 seconds for native tight TP, 120 seconds each for
+native line and coincident-path sampling, and 20 seconds for generated Python. The Python sandbox also
 limits output to 20,000,000 bytes and monitors for 512 MiB RSS. These values
 come from the current transport, renderer, measurement, and v13 sandbox code;
 the future executor must verify that it applies them to every cell.
