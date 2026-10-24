@@ -21,6 +21,8 @@ This folder holds the code that runs that path, and the prompts the program read
 
 像素被改过，只说明程序执行了。这不等于图已经看过、可以接受。
 
+真实API接入小样、已观察的视觉得失及尚未执行的80张实验见[验证状态](docs/validation-status.md)。
+
 ### 后段容量检查
 
 线条事实表会把重复属性存一次，用列字典引用；每条记录、坐标和数值都保留。

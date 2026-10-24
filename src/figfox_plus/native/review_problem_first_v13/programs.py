@@ -1,10 +1,13 @@
 """Validated, resumable local transactions shared by both constructor phases."""
 from copy import deepcopy
+from decimal import Decimal, InvalidOperation
 import fcntl
+from fractions import Fraction
 import hashlib
 import json
 import math
 from pathlib import Path
+import re
 import xml.etree.ElementTree as ET
 from .scene import digest, descendants, assert_target_scope, write_checkpoint
 from .sandbox import run_code
@@ -221,6 +224,103 @@ def _has_arrow(program):
     return walk(program.get('args', {}).get('operations'))
 
 
+_LINE_NUMBER = r'[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?'
+_LINE_SEPARATOR = r'(?:\s*,\s*|\s+|(?=[+-]))'
+_SINGLE_LINE = re.compile(
+    rf'\s*M\s*({_LINE_NUMBER}){_LINE_SEPARATOR}({_LINE_NUMBER})\s*'
+    rf'L\s*({_LINE_NUMBER}){_LINE_SEPARATOR}({_LINE_NUMBER})\s*'
+)
+
+
+def _line_tokens(value):
+    match = _SINGLE_LINE.fullmatch(value) if isinstance(value, str) else None
+    if match is None:
+        return None
+    try:
+        for token in match.groups():
+            decimal = Decimal(token)
+            number = float(decimal)
+            unit = float(f'1e{decimal.as_tuple().exponent}')
+            if (not math.isfinite(number) or (decimal != 0 and number == 0)
+                    or not math.isfinite(unit) or unit == 0):
+                return None
+    except (ValueError, OverflowError, InvalidOperation):
+        return None
+    return match.groups()
+
+
+def _segment_meets_rounding_cell(start, end, endpoint, tokens):
+    """The old segment must intersect the endpoint's decimal rounding box."""
+    lower, upper = Fraction(0), Fraction(1)
+    for origin, finish, center, token in zip(start, end, endpoint, tokens):
+        exponent = Decimal(token).as_tuple().exponent
+        half_unit = Fraction(10 ** exponent, 2) if exponent >= 0 else Fraction(1, 2 * 10 ** -exponent)
+        delta = finish - origin
+        if not delta:
+            if abs(center - origin) > half_unit:
+                return False
+            continue
+        edges = sorted(((center - half_unit - origin) / delta,
+                        (center + half_unit - origin) / delta))
+        lower, upper = max(lower, edges[0]), min(upper, edges[1])
+        if lower > upper:
+            return False
+    return True
+
+
+def _marked_line_endpoint_repair(program, selected_issues, root):
+    """Admit only scoped inward trims of existing locally marker-ended lines."""
+    if program.get('route') != 'module_program' or {i.get('category') for i in selected_issues} != {'D'}:
+        return False
+    convergence = program.get('convergence') or {}
+    if not isinstance(convergence, dict) or convergence.get('repairs'):
+        return False
+    args = program.get('args')
+    operations = args.get('operations') if isinstance(args, dict) else None
+    declared_ids = program.get('target_ids')
+    issue_targets = {target for issue in selected_issues for target in issue.get('target_ids', [])}
+    if (not isinstance(operations, list) or not operations or not isinstance(declared_ids, list)
+            or any(not isinstance(target, str) for target in declared_ids)
+            or len(declared_ids) != len(set(declared_ids)) or not set(declared_ids) <= issue_targets):
+        return False
+    by_id = {node.get('id'): node for node in root.iter() if node.get('id')}
+    edited = []
+    for op in operations:
+        if not isinstance(op, dict) or set(op) != {'method', 'target_ids', 'args'}:
+            return False
+        targets, args = op.get('target_ids'), op.get('args')
+        if (op.get('method') != 'bp_patch' or not isinstance(targets, list) or len(targets) != 1
+                or not isinstance(args, dict) or set(args) != {'attributes'}
+                or not isinstance(args['attributes'], dict) or set(args['attributes']) != {'d'}):
+            return False
+        target = targets[0]
+        if not isinstance(target, str) or target not in declared_ids:
+            return False
+        node = by_id.get(target)
+        if node is None or node.tag.rsplit('}', 1)[-1] != 'path' or len(node):
+            return False
+        marker_ref = re.fullmatch(r'url\(#([^)]+)\)', node.get('marker-end') or '')
+        marker = by_id.get(marker_ref.group(1)) if marker_ref else None
+        if marker is None or marker.tag.rsplit('}', 1)[-1] != 'marker':
+            return False
+        old_tokens = _line_tokens(node.get('d'))
+        new_tokens = _line_tokens(args['attributes']['d'])
+        if old_tokens is None or new_tokens is None:
+            return False
+        old = tuple(Fraction(Decimal(value)) for value in old_tokens)
+        new = tuple(Fraction(Decimal(value)) for value in new_tokens)
+        start, end, endpoint = old[:2], old[2:], new[2:]
+        vector = tuple(finish - origin for origin, finish in zip(start, end))
+        offset = tuple(center - origin for origin, center in zip(start, endpoint))
+        length_squared = sum(axis * axis for axis in vector)
+        projection = sum(axis * step for axis, step in zip(vector, offset))
+        if (not length_squared or old[:2] != new[:2] or not 0 < projection < length_squared
+                or not _segment_meets_rounding_cell(start, end, endpoint, new_tokens[2:])):
+            return False
+        edited.append(target)
+    return len(edited) == len(set(edited)) and set(edited) == set(declared_ids)
+
+
 def validate_programs(programs,issues,images,prior_executed=None,*,capabilities=None):
     from ..capabilities import normalize_capabilities,reject_disabled_program
     policy=normalize_capabilities(capabilities)
@@ -253,7 +353,7 @@ def validate_programs(programs,issues,images,prior_executed=None,*,capabilities=
         categories=[i.get('category') for i in selected]
         if any(c not in ('A','B','C','D','E','F','S1','S2','S3','S4') for c in categories):raise ValueError('unknown issue category')
         if policy['code_methods'] and 'S1' in categories and not _has_cuboid_replace(p):raise ValueError('regular solid must be replaced with SP cuboid or lattice')
-        if policy['code_methods'] and 'D' in categories and not _has_arrow(p):raise ValueError('arrow must be rebuilt with SP arrow')
+        if policy['code_methods'] and 'D' in categories and not (_has_arrow(p) or _marked_line_endpoint_repair(p,selected,roots[im])):raise ValueError('arrow must be rebuilt with SP arrow')
         if set(categories) in ({'D'}, {'S2'}):
             p['depends_on']=[]
             p.pop('when',None)
