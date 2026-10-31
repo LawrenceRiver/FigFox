@@ -1,0 +1,713 @@
+{
+  "version": "2.0",
+  "task_id": "synthetic-critical-demo",
+  "synthetic": true,
+  "items": [
+    {
+      "item_id": "D01",
+      "title": "文字、数字与单位",
+      "status": "pass",
+      "units": [
+        {
+          "item_id": "D01",
+          "unit_id": "a",
+          "status": "pass",
+          "score": null,
+          "evidence": [
+            "reference.object:a",
+            "candidate.object:a",
+            "合成测试夹具的已知生成结构；仅验证算法"
+          ],
+          "reason": "attested exact transcription match",
+          "primary_category": "D01",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "none",
+          "root_cause": "D01:a",
+          "source": "rule",
+          "verification": "verified",
+          "coverage": 1,
+          "applicability": "applicable"
+        },
+        {
+          "item_id": "D01",
+          "unit_id": "b",
+          "status": "pass",
+          "score": null,
+          "evidence": [
+            "reference.object:b",
+            "candidate.object:b",
+            "合成测试夹具的已知生成结构；仅验证算法"
+          ],
+          "reason": "attested exact transcription match",
+          "primary_category": "D01",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "none",
+          "root_cause": "D01:b",
+          "source": "rule",
+          "verification": "verified",
+          "coverage": 1,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {},
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 1.0,
+      "distribution": {
+        "pass": 2
+      }
+    },
+    {
+      "item_id": "D02",
+      "title": "公式含义与数学结构",
+      "status": "na",
+      "units": [],
+      "metrics": {},
+      "applicability_reason": "完整合成参考无此类单元",
+      "coverage": null
+    },
+    {
+      "item_id": "D03",
+      "title": "对象完整与身份正确",
+      "status": "pass",
+      "units": [
+        {
+          "item_id": "D03",
+          "unit_id": "a",
+          "status": "pass",
+          "score": null,
+          "evidence": [
+            "reference.object:a",
+            "candidate.object:a",
+            "合成测试夹具的已知生成结构；仅验证算法"
+          ],
+          "reason": "identity match",
+          "primary_category": "D03",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "none",
+          "root_cause": "object:a",
+          "source": "rule",
+          "verification": "verified",
+          "coverage": 1,
+          "applicability": "applicable"
+        },
+        {
+          "item_id": "D03",
+          "unit_id": "b",
+          "status": "pass",
+          "score": null,
+          "evidence": [
+            "reference.object:b",
+            "candidate.object:b",
+            "合成测试夹具的已知生成结构；仅验证算法"
+          ],
+          "reason": "identity match",
+          "primary_category": "D03",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "none",
+          "root_cause": "object:b",
+          "source": "rule",
+          "verification": "verified",
+          "coverage": 1,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {
+        "correct": 2,
+        "missing": 0,
+        "extra": 0,
+        "incorrect_identity": 0
+      },
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 1.0,
+      "distribution": {
+        "pass": 2
+      }
+    },
+    {
+      "item_id": "D04",
+      "title": "数量与重复结构",
+      "status": "fail",
+      "units": [
+        {
+          "item_id": "D04",
+          "unit_id": "a",
+          "status": "fail",
+          "score": null,
+          "evidence": [
+            "reference.object:a",
+            "candidate.object:a",
+            "合成测试夹具的已知生成结构；仅验证算法"
+          ],
+          "reason": "count 3 vs 2",
+          "primary_category": "D04",
+          "related_categories": [],
+          "severity": "critical",
+          "repair_scope": "object",
+          "root_cause": "count:a",
+          "source": "rule",
+          "verification": "verified",
+          "issue_id": "I-b1101abae8",
+          "coverage": 1,
+          "applicability": "applicable"
+        },
+        {
+          "item_id": "D04",
+          "unit_id": "b",
+          "status": "pass",
+          "score": null,
+          "evidence": [
+            "reference.object:b",
+            "candidate.object:b",
+            "合成测试夹具的已知生成结构；仅验证算法"
+          ],
+          "reason": "count 1 vs 1",
+          "primary_category": "D04",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "none",
+          "root_cause": "count:b",
+          "source": "rule",
+          "verification": "verified",
+          "coverage": 1,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {},
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 1.0,
+      "distribution": {
+        "fail": 1,
+        "pass": 1
+      }
+    },
+    {
+      "item_id": "D05",
+      "title": "连接拓扑与方向",
+      "status": "fail",
+      "units": [
+        {
+          "item_id": "D05",
+          "unit_id": "e1",
+          "status": "fail",
+          "score": null,
+          "evidence": [
+            "reference.edge:e1",
+            "合成测试夹具的已知生成结构；仅验证算法",
+            "candidate.edge:e1"
+          ],
+          "reason": "explicit edge endpoint/direction comparison",
+          "primary_category": "D05",
+          "related_categories": [],
+          "severity": "critical",
+          "repair_scope": "relation",
+          "root_cause": "edge:e1",
+          "source": "rule",
+          "verification": "verified",
+          "issue_id": "I-611eb243a7",
+          "coverage": 1,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {
+        "correct": 0,
+        "missing": 0,
+        "extra": 0,
+        "incorrect": 1
+      },
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 1.0,
+      "distribution": {
+        "fail": 1
+      }
+    },
+    {
+      "item_id": "D06",
+      "title": "走线清晰与无歧义",
+      "status": "unknown",
+      "units": [
+        {
+          "item_id": "D06",
+          "unit_id": "whole",
+          "status": "unknown",
+          "score": null,
+          "evidence": [],
+          "reason": "requires rendered semantic or actual editing evidence",
+          "primary_category": "D06",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "unknown",
+          "root_cause": "D06:whole",
+          "source": "rule",
+          "verification": "unverified",
+          "coverage": 0,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {},
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 0.0,
+      "distribution": {
+        "unknown": 1
+      }
+    },
+    {
+      "item_id": "D07",
+      "title": "容器与内容归属",
+      "status": "pass",
+      "units": [
+        {
+          "item_id": "D07",
+          "unit_id": "a",
+          "status": "pass",
+          "score": null,
+          "evidence": [
+            "reference.object:a",
+            "candidate.object:a",
+            "合成测试夹具的已知生成结构；仅验证算法"
+          ],
+          "reason": "explicit container parent comparison",
+          "primary_category": "D07",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "none",
+          "root_cause": "parent:a",
+          "source": "rule",
+          "verification": "verified",
+          "coverage": 1,
+          "applicability": "applicable"
+        },
+        {
+          "item_id": "D07",
+          "unit_id": "b",
+          "status": "pass",
+          "score": null,
+          "evidence": [
+            "reference.object:b",
+            "candidate.object:b",
+            "合成测试夹具的已知生成结构；仅验证算法"
+          ],
+          "reason": "explicit container parent comparison",
+          "primary_category": "D07",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "none",
+          "root_cause": "parent:b",
+          "source": "rule",
+          "verification": "verified",
+          "coverage": 1,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {},
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 1.0,
+      "distribution": {
+        "pass": 2
+      }
+    },
+    {
+      "item_id": "D08",
+      "title": "相对布局、对齐与对称",
+      "status": "pass",
+      "units": [
+        {
+          "item_id": "D08",
+          "unit_id": "bbox_layout",
+          "status": "pass",
+          "score": null,
+          "evidence": [
+            "合成测试夹具的已知生成结构；仅验证算法",
+            "a",
+            "b"
+          ],
+          "reason": "matched bbox layout, isotropic normalization; scope is configured geometry only",
+          "primary_category": "D08",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "none",
+          "root_cause": "D08:bbox_layout",
+          "source": "rule",
+          "verification": "verified",
+          "coverage": 1,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {
+        "normalized_bbox_deviations": {
+          "a": 0.0,
+          "b": 0.0
+        },
+        "tolerance": 0.01
+      },
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 1.0,
+      "distribution": {
+        "pass": 1
+      }
+    },
+    {
+      "item_id": "D09",
+      "title": "几何构造与内部结构",
+      "status": "unknown",
+      "units": [
+        {
+          "item_id": "D09",
+          "unit_id": "whole",
+          "status": "unknown",
+          "score": null,
+          "evidence": [],
+          "reason": "requires rendered semantic or actual editing evidence",
+          "primary_category": "D09",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "unknown",
+          "root_cause": "D09:whole",
+          "source": "rule",
+          "verification": "unverified",
+          "coverage": 0,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {},
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 0.0,
+      "distribution": {
+        "unknown": 1
+      }
+    },
+    {
+      "item_id": "D10",
+      "title": "可见性与可读性",
+      "status": "unknown",
+      "units": [
+        {
+          "item_id": "D10",
+          "unit_id": "whole",
+          "status": "unknown",
+          "score": null,
+          "evidence": [],
+          "reason": "requires rendered semantic or actual editing evidence",
+          "primary_category": "D10",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "unknown",
+          "root_cause": "D10:whole",
+          "source": "rule",
+          "verification": "unverified",
+          "coverage": 0,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {},
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 0.0,
+      "distribution": {
+        "unknown": 1
+      }
+    },
+    {
+      "item_id": "D11",
+      "title": "颜色、强调与视觉层级",
+      "status": "unknown",
+      "units": [
+        {
+          "item_id": "D11",
+          "unit_id": "whole",
+          "status": "unknown",
+          "score": null,
+          "evidence": [],
+          "reason": "requires rendered semantic or actual editing evidence",
+          "primary_category": "D11",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "unknown",
+          "root_cause": "D11:whole",
+          "source": "rule",
+          "verification": "unverified",
+          "coverage": 0,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {},
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 0.0,
+      "distribution": {
+        "unknown": 1
+      }
+    },
+    {
+      "item_id": "D12",
+      "title": "尺度与同类样式协调",
+      "status": "unknown",
+      "units": [
+        {
+          "item_id": "D12",
+          "unit_id": "whole",
+          "status": "unknown",
+          "score": null,
+          "evidence": [],
+          "reason": "requires rendered semantic or actual editing evidence",
+          "primary_category": "D12",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "unknown",
+          "root_cause": "D12:whole",
+          "source": "rule",
+          "verification": "unverified",
+          "coverage": 0,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {},
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 0.0,
+      "distribution": {
+        "unknown": 1
+      }
+    },
+    {
+      "item_id": "D13",
+      "title": "内容可编辑",
+      "status": "unknown",
+      "units": [
+        {
+          "item_id": "D13",
+          "unit_id": "a",
+          "status": "unknown",
+          "score": null,
+          "evidence": [],
+          "reason": "requires rendered semantic or actual editing evidence",
+          "primary_category": "D13",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "unknown",
+          "root_cause": "D13:a",
+          "source": "rule",
+          "verification": "unverified",
+          "coverage": 0,
+          "applicability": "applicable"
+        },
+        {
+          "item_id": "D13",
+          "unit_id": "b",
+          "status": "unknown",
+          "score": null,
+          "evidence": [],
+          "reason": "requires rendered semantic or actual editing evidence",
+          "primary_category": "D13",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "unknown",
+          "root_cause": "D13:b",
+          "source": "rule",
+          "verification": "unverified",
+          "coverage": 0,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {
+        "editable_by_type": {
+          "shape": {
+            "required": 2,
+            "verified_editable": 0,
+            "ratio": 0.0
+          }
+        }
+      },
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 0.0,
+      "distribution": {
+        "unknown": 2
+      }
+    },
+    {
+      "item_id": "D14",
+      "title": "分组与拆分合理",
+      "status": "unknown",
+      "units": [
+        {
+          "item_id": "D14",
+          "unit_id": "whole",
+          "status": "unknown",
+          "score": null,
+          "evidence": [],
+          "reason": "requires rendered semantic or actual editing evidence",
+          "primary_category": "D14",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "unknown",
+          "root_cause": "D14:whole",
+          "source": "rule",
+          "verification": "unverified",
+          "coverage": 0,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {},
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 0.0,
+      "distribution": {
+        "unknown": 1
+      }
+    },
+    {
+      "item_id": "D15",
+      "title": "位图使用合理",
+      "status": "unknown",
+      "units": [
+        {
+          "item_id": "D15",
+          "unit_id": "a",
+          "status": "unknown",
+          "score": null,
+          "evidence": [],
+          "reason": "requires rendered semantic or actual editing evidence",
+          "primary_category": "D15",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "unknown",
+          "root_cause": "D15:a",
+          "source": "rule",
+          "verification": "unverified",
+          "coverage": 0,
+          "applicability": "applicable"
+        },
+        {
+          "item_id": "D15",
+          "unit_id": "b",
+          "status": "unknown",
+          "score": null,
+          "evidence": [],
+          "reason": "requires rendered semantic or actual editing evidence",
+          "primary_category": "D15",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "unknown",
+          "root_cause": "D15:b",
+          "source": "rule",
+          "verification": "unverified",
+          "coverage": 0,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {},
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 0.0,
+      "distribution": {
+        "unknown": 2
+      }
+    },
+    {
+      "item_id": "D16",
+      "title": "文件与编辑操作可靠",
+      "status": "unknown",
+      "units": [
+        {
+          "item_id": "D16",
+          "unit_id": "whole",
+          "status": "unknown",
+          "score": null,
+          "evidence": [],
+          "reason": "SVG_parseable_proxy_only; no verified operation chain",
+          "primary_category": "D16",
+          "related_categories": [],
+          "severity": "none",
+          "repair_scope": "unknown",
+          "root_cause": "D16:whole",
+          "source": "rule",
+          "verification": "unverified",
+          "coverage": 0,
+          "applicability": "applicable"
+        }
+      ],
+      "metrics": {},
+      "applicability_reason": "合成任务要求此性质",
+      "coverage": 0.0,
+      "distribution": {
+        "unknown": 1
+      }
+    },
+    {
+      "item_id": "D17",
+      "title": "局部图像保真",
+      "status": "na",
+      "units": [],
+      "metrics": {},
+      "applicability_reason": "完整合成参考无此类单元",
+      "coverage": null
+    },
+    {
+      "item_id": "D18",
+      "title": "数据图表忠实性",
+      "status": "na",
+      "units": [],
+      "metrics": {},
+      "applicability_reason": "完整合成参考无此类单元",
+      "coverage": null
+    }
+  ],
+  "issues": [
+    {
+      "issue_id": "I-b1101abae8",
+      "root_cause": "count:a",
+      "primary_category": "D04",
+      "related_categories": [],
+      "severity": "critical",
+      "repair_scope": "object",
+      "evidence": [
+        "reference.object:a",
+        "candidate.object:a",
+        "合成测试夹具的已知生成结构；仅验证算法"
+      ],
+      "units": [
+        "D04:a"
+      ]
+    },
+    {
+      "issue_id": "I-611eb243a7",
+      "root_cause": "edge:e1",
+      "primary_category": "D05",
+      "related_categories": [],
+      "severity": "critical",
+      "repair_scope": "relation",
+      "evidence": [
+        "reference.edge:e1",
+        "合成测试夹具的已知生成结构；仅验证算法",
+        "candidate.edge:e1"
+      ],
+      "units": [
+        "D05:e1"
+      ]
+    }
+  ],
+  "proxies": [
+    {
+      "status": "unknown",
+      "reason": "SVG_parseable_proxy_only",
+      "verification": "proxy"
+    },
+    {
+      "render_exists": true,
+      "verification": "proxy",
+      "reason": "existence never proves visibility"
+    }
+  ],
+  "model_reviews": [],
+  "coverage": {
+    "resolved": 10,
+    "total": 21,
+    "ratio": 0.47619047619047616,
+    "item_status_counts": {
+      "pass": 4,
+      "na": 3,
+      "fail": 2,
+      "unknown": 9
+    }
+  },
+  "usability": "unusable",
+  "aggregation_note": "No ordinal average or fixed penalties. Unknown units remain in coverage denominator; NA excluded. Critical failures gate usability."
+}

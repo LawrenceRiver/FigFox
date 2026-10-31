@@ -1,0 +1,187 @@
+{
+  "matrix_path": "${WORKSPACE}/four-cell-run-matrix.json",
+  "expected_matrix_sha256": "7cb6a5c6d5002b86d30939427f59c8f79be457503cf5f0776c135ad4a51018c5",
+  "registry_path": "${REPO}/benchmark/figfox-score-v2/figfox_score/registry.json",
+  "expected_registry_sha256": "78dce9c07e3096c1297afda583bade75c36bbac471c012bc8a17ea9fb8e799cd",
+  "adapter_root": "${SNAPSHOT}/runner/two-stage-adapter",
+  "native_source_root": "${SNAPSHOT}/native-source",
+  "bridge_path": "${SNAPSHOT}/runner/two-stage-bridge/prepare_cell.py",
+  "runtime_json": "${WORKSPACE}/runtime.json",
+  "native_python": "${PYTHON}",
+  "ledger_path": "${WORKSPACE}/accounting.json",
+  "expected_cap_usd": 691,
+  "output_root": "${WORKSPACE}/output",
+  "providers": {
+    "openai": {
+      "protocol": "responses",
+      "endpoint": "https://api.openai.com/v1/responses",
+      "model": "gpt-5.5",
+      "key_env": "OPENAI_API_KEY",
+      "env_file": "${ENV_FILE}",
+      "context_tokens": 1050000,
+      "max_input_tokens": 262144,
+      "max_output_tokens": 32768,
+      "input_usd_per_million": 5,
+      "output_usd_per_million": 30,
+      "cache_usd_per_million": 0.5,
+      "price_provenance": "2026-10-29 https://developers.openai.com/api/docs/models/gpt-5.5; input cap262144 below272K long-context surcharge threshold",
+      "image_token_bound": {
+        "tile_size": 32,
+        "tokens_per_tile": 2,
+        "base_tokens": 1
+      },
+      "image_bound_source": "https://developers.openai.com/api/docs/guides/images-vision ; conservative full-resolution32px patches*2 exceeds model1.2 multiplier",
+      "max_request_bytes": 50331648,
+      "extra_body": {
+        "reasoning": {
+          "effort": "medium"
+        }
+      },
+      "timeout_seconds": 1800,
+      "pause_file": "${WORKSPACE}/provider-pause.json"
+    },
+    "deepseek": {
+      "protocol": "chat_completions",
+      "endpoint": "https://api.deepseek.com/chat/completions",
+      "model": "deepseek-flash",
+      "key_env": "DEEPSEEK_API_KEY",
+      "env_file": "${ENV_FILE}",
+      "context_tokens": 1048576,
+      "max_input_tokens": 1032192,
+      "max_output_tokens": 16384,
+      "input_usd_per_million": 0.3,
+      "output_usd_per_million": 1.2,
+      "cache_usd_per_million": 0.006,
+      "price_provenance": "2026-10-29 https://api-docs.deepseek.com/quick_start/pricing; conservative PEAK rates, not expected actual invoice",
+      "image_token_bound": {
+        "tile_size": 8192,
+        "tokens_per_tile": 1,
+        "base_tokens": 1023,
+        "basis": "Official DeepSeek Vision: maximum1024 tokens per legal image; maximum8192 pixels per side. This is an upper bound, not a token bill estimate.",
+        "source_url": "https://api-docs.deepseek.com/guides/vision/"
+      },
+      "image_bound_source": "https://api-docs.deepseek.com/guides/vision ; max1024tokens/image, conservatively1025 fordimensions<=8192",
+      "text_tokenizer": {
+        "python": "${TOKENIZER_PYTHON}",
+        "tokenizer_json": "${TOKENIZER_JSON}",
+        "sha256": "89085f12ef79460ac5f66d1119325ddfc694b4ab209d80bbd81d35f081dc9614",
+        "safety_margin_tokens": 4096,
+        "source_url": "https://api-docs.deepseek.com/quick_start/token_usage"
+      },
+      "max_request_bytes": 50331648,
+      "extra_body": {
+        "thinking": {
+          "type": "disabled"
+        }
+      },
+      "timeout_seconds": 300,
+      "json_output": true,
+      "pause_file": "${WORKSPACE}/provider-pause.json"
+    },
+    "deepseek_score": {
+      "protocol": "chat_completions",
+      "endpoint": "https://api.deepseek.com/chat/completions",
+      "model": "deepseek-flash",
+      "key_env": "DEEPSEEK_API_KEY",
+      "env_file": "${ENV_FILE}",
+      "context_tokens": 1048576,
+      "max_input_tokens": 1032192,
+      "max_output_tokens": 16384,
+      "input_usd_per_million": 0.3,
+      "output_usd_per_million": 1.2,
+      "cache_usd_per_million": 0.006,
+      "price_provenance": "2026-10-29 https://api-docs.deepseek.com/quick_start/pricing; conservative PEAK rates, not expected actual invoice",
+      "image_token_bound": {
+        "tile_size": 8192,
+        "tokens_per_tile": 1,
+        "base_tokens": 1023,
+        "basis": "Official DeepSeek Vision: maximum1024 tokens per legal image; maximum8192 pixels per side. This is an upper bound, not a token bill estimate.",
+        "source_url": "https://api-docs.deepseek.com/guides/vision/"
+      },
+      "image_bound_source": "https://api-docs.deepseek.com/guides/vision ; max1024tokens/image, conservatively1025 fordimensions<=8192",
+      "text_tokenizer": {
+        "python": "${TOKENIZER_PYTHON}",
+        "tokenizer_json": "${TOKENIZER_JSON}",
+        "sha256": "89085f12ef79460ac5f66d1119325ddfc694b4ab209d80bbd81d35f081dc9614",
+        "safety_margin_tokens": 4096,
+        "source_url": "https://api-docs.deepseek.com/quick_start/token_usage"
+      },
+      "max_request_bytes": 50331648,
+      "extra_body": {
+        "thinking": {
+          "type": "disabled"
+        }
+      },
+      "timeout_seconds": 300,
+      "json_output": true,
+      "pause_file": "${WORKSPACE}/provider-pause.json"
+    }
+  },
+  "first_provider": "openai",
+  "role_provider": {
+    "main": "deepseek",
+    "semantic": "deepseek",
+    "planner": "deepseek",
+    "verifier": "deepseek"
+  },
+  "score_provider": "deepseek_score",
+  "score_criterion_ids": [
+    "D01",
+    "D02",
+    "D03",
+    "D04",
+    "D05",
+    "D06",
+    "D07",
+    "D08",
+    "D09",
+    "D10",
+    "D11",
+    "D12",
+    "D13",
+    "D14",
+    "D15",
+    "D16",
+    "D17",
+    "D18"
+  ],
+  "transport_role_max_requests": 5,
+  "transport_verifier_max_requests": 3,
+  "native_timeout_seconds": 7200,
+  "check_timeout_seconds": 180,
+  "sam_service_url": "http://127.0.0.1:18080",
+  "sam_catalogs": {
+    "sample-0076": "/Users/lawrenceriver/Desktop/figfox-debug/output/formal-launch-20261029/sam-original-preflight/sam-catalog.json"
+  },
+  "sam_fee_usd": 0,
+  "sam_billing_basis": "existing local SAM service; no paid remote SAM fee supported",
+  "pricing_checked_date": "2026-10-29",
+  "manual_execute_only": true,
+  "sample_cap_usd": 679.73532,
+  "sam_preparer_source_root": "${SAM_PREPARER_SOURCE_ROOT}",
+  "sam_preparer_files": {
+    "${SAM_PREPARER_SOURCE_FILE}": "${SOURCE_SHA256}"
+  },
+  "recovery_policy": {
+    "one_image_gate": true,
+    "retry_until_pipeline_complete_within_original_sample_cap": true,
+    "retain_all_attempts": true,
+    "reuse_verified_first_generation": true,
+    "stop_cohort_on_exhausted_image_budget": true,
+    "scorer_thinking_disabled_reason": "Observed 8192/8192 reasoning tokens with empty answer; score format only, all18 criteria unchanged",
+    "success_definition": "complete native generation lifecycle and stored artifacts; formal evaluation separate"
+  },
+  "condition_caps_usd": {
+    "S0C0": 169.93383,
+    "S0C1": 169.93383,
+    "S1C0": 169.93383,
+    "S1C1": 169.93383
+  },
+  "parallel_cells": 4,
+  "budget_policy": "each full80 condition <=DrawAI full80 known recorded cost; replaces per-image cap; all prior fees retained",
+  "lock_timeout": 60,
+  "completion_mode": "native-generation-artifacts-evaluation-deferred",
+  "execution_protocol": "bounded-two-stage-v1",
+  "max_deepseek_calls_per_branch": 3,
+  "first_stage_adapter_root": "${SNAPSHOT}/first-stage-adapter"
+}

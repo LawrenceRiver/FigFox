@@ -1,0 +1,529 @@
+{
+  "version": "2.0",
+  "task_id": "synthetic-local-chart-error",
+  "synthetic": true,
+  "task_type": "reconstruction",
+  "source": {
+    "image": "source.svg",
+    "method_text": null,
+    "content_plan": "两个模块和一条有向边；编码器重复结构为3层。",
+    "reference_note": "合成测试清单，不是实际实验或实测评分。"
+  },
+  "source_conflict": false,
+  "reference": {
+    "objects": [
+      {
+        "id": "a",
+        "kind": "shape",
+        "identity": "编码器",
+        "parent": null,
+        "count": 3,
+        "bbox": [
+          10,
+          10,
+          60,
+          30
+        ],
+        "text": "Encoder",
+        "editable_required": true,
+        "native_bitmap": false,
+        "critical": true
+      },
+      {
+        "id": "b",
+        "kind": "shape",
+        "identity": "解码器",
+        "parent": null,
+        "count": 1,
+        "bbox": [
+          110,
+          10,
+          60,
+          30
+        ],
+        "text": "Decoder",
+        "editable_required": true,
+        "native_bitmap": false,
+        "critical": true
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "start": "a",
+        "end": "b",
+        "directed": true,
+        "critical": true
+      }
+    ]
+  },
+  "candidate": {
+    "objects": [
+      {
+        "id": "a",
+        "kind": "shape",
+        "identity": "编码器",
+        "parent": null,
+        "count": 3,
+        "bbox": [
+          10,
+          10,
+          60,
+          30
+        ],
+        "text": "Encoder",
+        "editable_required": true,
+        "native_bitmap": false,
+        "critical": true
+      },
+      {
+        "id": "b",
+        "kind": "shape",
+        "identity": "解码器",
+        "parent": null,
+        "count": 1,
+        "bbox": [
+          110,
+          10,
+          60,
+          30
+        ],
+        "text": "Decoder",
+        "editable_required": true,
+        "native_bitmap": false,
+        "critical": true
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "start": "a",
+        "end": "b",
+        "directed": true,
+        "critical": true
+      }
+    ],
+    "file": "candidate.svg",
+    "render": "candidate.svg",
+    "output_confirmed_missing": false,
+    "whole_page_bitmap": false
+  },
+  "matches": [
+    {
+      "ref": "a",
+      "candidate": "a"
+    },
+    {
+      "ref": "b",
+      "candidate": "b"
+    }
+  ],
+  "semantic_evidence": {
+    "source": "human",
+    "verified": true,
+    "refs": [
+      "合成测试夹具的已知生成结构；仅验证算法"
+    ]
+  },
+  "display": {
+    "width": 400,
+    "height": 180,
+    "unit": "px",
+    "software": "目标软件由实际接入方指定"
+  },
+  "tolerances": {
+    "normalized_bbox": 0.01
+  },
+  "applicability": {
+    "D01": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "a",
+          "ref_ids": [
+            "a"
+          ],
+          "critical": false
+        },
+        {
+          "id": "b",
+          "ref_ids": [
+            "b"
+          ],
+          "critical": false
+        }
+      ]
+    },
+    "D02": {
+      "state": "na",
+      "reason": "完整合成参考无此类单元",
+      "units": []
+    },
+    "D03": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "a",
+          "ref_ids": [
+            "a"
+          ],
+          "critical": true
+        },
+        {
+          "id": "b",
+          "ref_ids": [
+            "b"
+          ],
+          "critical": true
+        }
+      ]
+    },
+    "D04": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "a",
+          "ref_ids": [
+            "a"
+          ],
+          "critical": true
+        },
+        {
+          "id": "b",
+          "ref_ids": [
+            "b"
+          ],
+          "critical": true
+        }
+      ]
+    },
+    "D05": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "e1",
+          "ref_ids": [
+            "e1"
+          ],
+          "critical": true
+        }
+      ]
+    },
+    "D06": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "whole",
+          "ref_ids": [],
+          "critical": false
+        }
+      ]
+    },
+    "D07": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "a",
+          "ref_ids": [
+            "a"
+          ],
+          "critical": true
+        },
+        {
+          "id": "b",
+          "ref_ids": [
+            "b"
+          ],
+          "critical": true
+        }
+      ]
+    },
+    "D08": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "bbox_layout",
+          "ref_ids": [],
+          "critical": false
+        }
+      ]
+    },
+    "D09": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "whole",
+          "ref_ids": [],
+          "critical": false
+        }
+      ]
+    },
+    "D10": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "whole",
+          "ref_ids": [],
+          "critical": false
+        }
+      ]
+    },
+    "D11": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "whole",
+          "ref_ids": [],
+          "critical": false
+        }
+      ]
+    },
+    "D12": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "whole",
+          "ref_ids": [],
+          "critical": false
+        }
+      ]
+    },
+    "D13": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "a",
+          "ref_ids": [
+            "a"
+          ],
+          "critical": false
+        },
+        {
+          "id": "b",
+          "ref_ids": [
+            "b"
+          ],
+          "critical": false
+        }
+      ]
+    },
+    "D14": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "whole",
+          "ref_ids": [],
+          "critical": false
+        }
+      ]
+    },
+    "D15": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "a",
+          "ref_ids": [
+            "a"
+          ],
+          "critical": false
+        },
+        {
+          "id": "b",
+          "ref_ids": [
+            "b"
+          ],
+          "critical": false
+        }
+      ]
+    },
+    "D16": {
+      "state": "applicable",
+      "reason": "合成任务要求此性质",
+      "units": [
+        {
+          "id": "whole",
+          "ref_ids": [],
+          "critical": false
+        }
+      ]
+    },
+    "D17": {
+      "state": "applicable",
+      "reason": "synthetic explicit measurement fixture",
+      "units": [
+        {
+          "id": "photo",
+          "ref_ids": [],
+          "critical": false
+        }
+      ]
+    },
+    "D18": {
+      "state": "applicable",
+      "reason": "synthetic explicit measurement fixture",
+      "units": [
+        {
+          "id": "chart",
+          "ref_ids": [],
+          "critical": true
+        }
+      ]
+    }
+  },
+  "evidence": [],
+  "edit_evidence": [],
+  "operation_evidence": [],
+  "edge_matches": [
+    {
+      "ref": "e1",
+      "candidate": "e1"
+    }
+  ],
+  "local_images": {
+    "enabled": true,
+    "comparisons": [
+      {
+        "unit_id": "photo",
+        "asset_id": "native-1",
+        "identity_evidence": {
+          "source": "human",
+          "verified": true,
+          "refs": [
+            "synthetic known identity"
+          ]
+        },
+        "reference_file": "assets/reference.png",
+        "candidate_file": "assets/candidate-changed.png",
+        "reference_region": [
+          2,
+          3,
+          8,
+          8
+        ],
+        "candidate_region": [
+          12,
+          13,
+          8,
+          8
+        ],
+        "transform": {
+          "scale": 1,
+          "translation": [
+            10,
+            10
+          ],
+          "allow_translation": true,
+          "allow_uniform_scale": true
+        }
+      }
+    ]
+  },
+  "chart_checks": [
+    {
+      "unit_id": "chart",
+      "evidence": {
+        "source": "human",
+        "verified": true,
+        "refs": [
+          "synthetic data attestation"
+        ]
+      },
+      "reference": {
+        "axes": {
+          "x": {
+            "scale": "linear",
+            "unit": "s"
+          },
+          "y": {
+            "scale": "linear",
+            "unit": "m"
+          }
+        },
+        "series": [
+          {
+            "id": "s1",
+            "semantic_id": "distance",
+            "legend_key": "Distance",
+            "points": [
+              {
+                "id": "p0",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "id": "p1",
+                "x": 1,
+                "y": 2
+              }
+            ]
+          }
+        ]
+      },
+      "candidate": {
+        "axes": {
+          "x": {
+            "scale": "linear",
+            "unit": "s"
+          },
+          "y": {
+            "scale": "linear",
+            "unit": "m"
+          }
+        },
+        "series": [
+          {
+            "id": "s1",
+            "semantic_id": "distance",
+            "legend_key": "Distance",
+            "points": [
+              {
+                "id": "p0",
+                "x": 0,
+                "y": 1
+              },
+              {
+                "id": "p1",
+                "x": 1,
+                "y": 2.1
+              }
+            ]
+          }
+        ]
+      },
+      "series_matches": [
+        {
+          "ref": "s1",
+          "candidate": "s1",
+          "point_matches": [
+            {
+              "ref": "p0",
+              "candidate": "p0"
+            },
+            {
+              "ref": "p1",
+              "candidate": "p1"
+            }
+          ]
+        }
+      ],
+      "tolerances": {
+        "x_abs": 0,
+        "y_abs": 0.01
+      }
+    }
+  ]
+}

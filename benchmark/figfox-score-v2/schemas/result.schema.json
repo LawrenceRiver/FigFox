@@ -1,0 +1,420 @@
+{
+  "type": "object",
+  "properties": {
+    "version": {
+      "enum": [
+        "2.0"
+      ]
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "synthetic": {
+      "type": "boolean"
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "item_id": {
+            "enum": [
+              "D01",
+              "D02",
+              "D03",
+              "D04",
+              "D05",
+              "D06",
+              "D07",
+              "D08",
+              "D09",
+              "D10",
+              "D11",
+              "D12",
+              "D13",
+              "D14",
+              "D15",
+              "D16",
+              "D17",
+              "D18"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pass",
+              "fail",
+              "unknown",
+              "na"
+            ]
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "item_id": {
+                  "enum": [
+                    "D01",
+                    "D02",
+                    "D03",
+                    "D04",
+                    "D05",
+                    "D06",
+                    "D07",
+                    "D08",
+                    "D09",
+                    "D10",
+                    "D11",
+                    "D12",
+                    "D13",
+                    "D14",
+                    "D15",
+                    "D16",
+                    "D17",
+                    "D18"
+                  ]
+                },
+                "unit_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "pass",
+                    "fail",
+                    "unknown",
+                    "na"
+                  ]
+                },
+                "score": {
+                  "type": "null"
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "primary_category": {
+                  "enum": [
+                    "D01",
+                    "D02",
+                    "D03",
+                    "D04",
+                    "D05",
+                    "D06",
+                    "D07",
+                    "D08",
+                    "D09",
+                    "D10",
+                    "D11",
+                    "D12",
+                    "D13",
+                    "D14",
+                    "D15",
+                    "D16",
+                    "D17",
+                    "D18"
+                  ]
+                },
+                "related_categories": {
+                  "type": "array",
+                  "items": {
+                    "enum": [
+                      "D01",
+                      "D02",
+                      "D03",
+                      "D04",
+                      "D05",
+                      "D06",
+                      "D07",
+                      "D08",
+                      "D09",
+                      "D10",
+                      "D11",
+                      "D12",
+                      "D13",
+                      "D14",
+                      "D15",
+                      "D16",
+                      "D17",
+                      "D18"
+                    ]
+                  }
+                },
+                "severity": {
+                  "enum": [
+                    "none",
+                    "minor",
+                    "major",
+                    "critical"
+                  ]
+                },
+                "repair_scope": {
+                  "enum": [
+                    "none",
+                    "local",
+                    "object",
+                    "relation",
+                    "global",
+                    "unknown"
+                  ]
+                },
+                "root_cause": {
+                  "type": "string"
+                },
+                "source": {
+                  "enum": [
+                    "rule",
+                    "model",
+                    "human",
+                    "mock"
+                  ]
+                },
+                "verification": {
+                  "enum": [
+                    "verified",
+                    "unverified",
+                    "proxy",
+                    "conflict",
+                    "synthetic_mock"
+                  ]
+                },
+                "coverage": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "applicability": {
+                  "enum": [
+                    "applicable",
+                    "na"
+                  ]
+                },
+                "issue_id": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "item_id",
+                "unit_id",
+                "status",
+                "score",
+                "evidence",
+                "reason",
+                "primary_category",
+                "related_categories",
+                "severity",
+                "repair_scope",
+                "root_cause",
+                "source",
+                "verification",
+                "coverage",
+                "applicability"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "metrics": {
+            "type": "object"
+          },
+          "applicability_reason": {
+            "type": "string"
+          },
+          "coverage": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "distribution": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "item_id",
+          "title",
+          "status",
+          "units",
+          "metrics",
+          "applicability_reason",
+          "coverage"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 18,
+      "maxItems": 18
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "issue_id": {
+            "type": "string"
+          },
+          "root_cause": {
+            "type": "string"
+          },
+          "primary_category": {
+            "enum": [
+              "D01",
+              "D02",
+              "D03",
+              "D04",
+              "D05",
+              "D06",
+              "D07",
+              "D08",
+              "D09",
+              "D10",
+              "D11",
+              "D12",
+              "D13",
+              "D14",
+              "D15",
+              "D16",
+              "D17",
+              "D18"
+            ]
+          },
+          "related_categories": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "D01",
+                "D02",
+                "D03",
+                "D04",
+                "D05",
+                "D06",
+                "D07",
+                "D08",
+                "D09",
+                "D10",
+                "D11",
+                "D12",
+                "D13",
+                "D14",
+                "D15",
+                "D16",
+                "D17",
+                "D18"
+              ]
+            }
+          },
+          "severity": {
+            "enum": [
+              "none",
+              "minor",
+              "major",
+              "critical"
+            ]
+          },
+          "repair_scope": {
+            "enum": [
+              "none",
+              "local",
+              "object",
+              "relation",
+              "global",
+              "unknown"
+            ]
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "units": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "issue_id",
+          "root_cause",
+          "primary_category",
+          "related_categories",
+          "severity",
+          "repair_scope",
+          "evidence",
+          "units"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "proxies": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "model_reviews": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "resolved": {
+          "type": "integer"
+        },
+        "total": {
+          "type": "integer"
+        },
+        "ratio": {
+          "type": "number"
+        },
+        "item_status_counts": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "resolved",
+        "total",
+        "ratio",
+        "item_status_counts"
+      ],
+      "additionalProperties": false
+    },
+    "usability": {
+      "enum": [
+        "pending_reference",
+        "unusable",
+        "needs_revision",
+        "pending_verification",
+        "usable"
+      ]
+    },
+    "aggregation_note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "version",
+    "task_id",
+    "synthetic",
+    "items",
+    "issues",
+    "proxies",
+    "model_reviews",
+    "coverage",
+    "usability",
+    "aggregation_note"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FigFox v2 result"
+}

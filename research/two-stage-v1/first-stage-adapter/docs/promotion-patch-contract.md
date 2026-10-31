@@ -1,0 +1,21 @@
+# Versioned active-uncertainty promotion patch
+
+This contract applies only to a confirmed row within the existing `uncertainty_reviews` array. Each row is itself the flat patch:
+
+```
+{schema_version:'uncertainty-promotion-patch-v1', id:ACTIVE_UNCERTAIN_ID,
+ decision:'confirmed', target_ids:[ACTUAL_CURRENT_IDS], neighbor_ids:[ACTUAL_CURRENT_IDS],
+ evidence:NONEMPTY_POST_RENDER_EVIDENCE, container_id?:ACTUAL_CURRENT_CONTAINER}
+```
+
+Required keys are exactly `schema_version,id,decision,target_ids,neighbor_ids,evidence`; `container_id` is the only optional key. The version must be exactly `uncertainty-promotion-patch-v1`. `id` must be the exact ID of one canonical CURRENT active uncertainty; IDs are unique across the outer review array. Missing, foreign, historical and duplicate IDs are rejected. Required fields must be explicitly present with their declared types. `target_ids` and `neighbor_ids` are arrays of unique strings naming actual current candidate SVG objects; `container_id`, when supplied, is a nonempty string naming an actual current container. Empty targets require a real existing container. Evidence must be a nonempty string based on independent post-render inspection of actual SOURCE + BEFORE + CANDIDATE PNGs and corresponding current SVG/crops/bounds. Native execution receipts alone do not establish visual success or necessity.
+
+The host looks up the canonical CURRENT active uncertainty by exact ID and deep-copies its entire issue, including arbitrary nested metadata. The host sets `decision='confirmed'`, replaces `target_ids` and `neighbor_ids` with the explicitly supplied arrays, removes an old `container_id` then sets it iff supplied, and maps explicitly supplied review `evidence` to `current_evidence`. This mapping is the declared contract. It is not inferred evidence. Every other key/value must equal the canonical issue exactly, including category, description, source identity, original evidence and all history. Canonical state and submitted patch objects are unmodified and share no mutable nested data with the constructed issue. The host retains an immutable-projection guard and runs existing `validate_issues` on the full result against the actual candidate SVG.
+
+Reject unknown keys and all attempts to regenerate immutable metadata: `category`, `description`, `image_id`, source/history fields, `original_evidence`, `current_evidence` aliases or other extra fields are invalid. `current_issue` is rejected both alone in the old format and mixed with the new patch. Wrong or absent version, invalid current object/container bindings, duplicate bindings, malformed types and empty evidence fail closed. Do not coerce types, infer IDs, fabricate evidence, fill from old finals, rewrite a rejected raw final or submit a corrected replacement receipt. Old finals remain verbatim immutable artifacts and are not normalized into this schema.
+
+Existing outer review identity/uniqueness, state revision, before-checkpoint, candidate evidence hash and raw report immutability guards remain authoritative. New-binding, missing-container, category and native authority constraints still apply. A promotion is a newly confirmed current obligation and earns no initial-confirmed repair credit. A no-op candidate cannot resolve a confirmed or uncertain defect. Protected regressions reject the entire candidate, discarding all its promotions, new bindings and pending triage while retaining the accepted checkpoint's queues and history; new discoveries retain existing quarantine behavior. There is no additional AI stage, verifier turn or repair attempt.
+
+Nonconfirmed `uncertainty_reviews` decisions (`resolved`, `not_required`, `uncertain`) retain their existing behavior, including evidence requirements and omission preserving the original issue and order. `pending_observation_reviews` is a separate contract: its `confirmed_current` and `uncertain_current` rows STILL require a complete `current_issue` as specified in `docs/pending-observation-contract.md`. Never migrate pending reviews by analogy. Main/semantic/planner behavior, observation handling and native execution contracts remain unchanged.
+
+`promotion_contract.py` and this document are included in source/prompt hashing. Changing either after a run begins invalidates the run under the existing frozen-byte checks.
