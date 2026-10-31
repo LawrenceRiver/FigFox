@@ -1,0 +1,3 @@
+# Core runtime and tests: Python >=3.10, standard library only.
+# Optional D17 PNG/JPEG local metrics require Pillow; see requirements-pillow.txt.
+# PDF already delivered; optional rebuild in work uses reportlab and PyMuPDF/Pillow.

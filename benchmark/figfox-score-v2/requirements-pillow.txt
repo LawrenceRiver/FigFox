@@ -1,0 +1,2 @@
+# Optional only: PNG/JPEG local D17 measurements; core scoring works without it.
+Pillow>=10

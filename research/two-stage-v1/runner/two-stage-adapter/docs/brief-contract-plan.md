@@ -1,0 +1,3 @@
+# Scoped briefing plan
+
+Use the native capability-aware method-pack builder, preserving its true empty disabled inventories. Keep one common visual quality and conditional policy block, with hashes, while separately publishing actual arm availability. Expose only public schema, navigation metadata and ordinary image/SVG evidence in disabled briefs. Enabled briefs retain authoritative method source and manual access. Preserve the same categories, roles and three-round protocol. Render generic synthetic dispatches for every role and assignment; test inventories, public schema usability, forbidden disabled paths/data and shared policy hashes. No cases, models, executor runs or provider access are used by this task.
