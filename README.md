@@ -4,20 +4,22 @@
 
 Reconstruct scientific figures as editable SVGs, then detect, plan, execute and verify repairs against the reference. Execution completion is reported separately from visual quality.
 
-## Latest architecture · 2026-10-31
+## Current research architecture · 2026-11-01
 
-![FigFox bounded two-stage architecture](docs/assets/figfox-two-stage-20261031.png)
+![FigFox visual-gated research pipeline](docs/assets/figfox-visual-gated-20261101.png)
 
-1. **Shared reconstruction:** two GPT-5.5 drafts per original, A1 without SAM and A2 with local SAM3. Each is shared by the matching C0/C1 branches after provenance checks.
-2. **Four parallel branches:** S0C0/S0C1/S1C0/S1C1, each with one joint detection call, one repair-planning call, local native execution/rendering and one post-render verifier call. DeepSeek thinking is disabled; normal total is 12 DeepSeek requests per original.
-3. **Separate evaluation:** saved outputs are assessed post-hoc using FigFox scoring standard v2 (D01–D18), rather than adding grading calls inside the generation chain.
+Reference image and verified SAM3 assets → GPT-5.5 draft → **D1 practical initial gate** → **C1 issue identification** → **C2 scoped native-method repair** → local execution/render → **D2 visual review and bounded redispatch** → validated checkpoint selection/merge → editable SVG, PNG and remaining-issue record.
 
-- [Architecture, branch mapping and measured generation status](docs/architecture-two-stage.md)
-- [Actual bounded experiment code and source hashes](research/two-stage-v1/README.md)
-- [Unified v2 evaluation protocol](docs/evaluation-unified-v2.md)
+D1 prefers continuing with local repair; systemic failure can request local-first regeneration. D2 reuses existing C2 method subsets, supports early stopping and at most two repair rounds. Formal evaluation is separate.
+
+**Validation status:** this is the latest research design with isolated assisted prototype tests. D1 adaptive local-regeneration integration, a complete autonomous latest-version cohort, and final end-to-end efficiency remain unvalidated. The legacy `chain` executable has not silently become this full supervisor. No benchmark ranking is claimed.
+
+- [Complete chain, evidence bindings and implementation boundaries](docs/architecture-visual-gated.md)
+- [Archived bounded two-stage protocol](docs/architecture-two-stage.md)
+- [Separate v2 evaluation protocol](docs/evaluation-unified-v2.md)
 - [Supplied v2 scoring implementation and registry](benchmark/figfox-score-v2/README.md)
 
-The latest generation cohort completed **80/80 originals and 320/320 native conditions**. Native visual-pass flags were **0/320** (`needs_followup`); this is not a claim of successful visual reconstruction or a formal grading result. Raw failures and unknowns are preserved. No benchmark win is asserted here.
+Current experimental result tables and post-hoc repair materials are **internal review only** and are not part of this public architecture update. Do not auto-publish the private experiment archive or its tables; a separate explicit human release instruction is required.
 
 ## Existing package and legacy entry
 
