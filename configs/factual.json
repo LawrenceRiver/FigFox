@@ -1,0 +1,42 @@
+{
+  "budget_usd": 169.93383,
+  "price_basis": "recorded experiment rates; verify provider billing before a new cohort",
+  "stages": {
+    "G0": {
+      "model": "gpt-5.5",
+      "endpoint": "https://api.openai.com/v1/responses",
+      "protocol": "responses",
+      "key_env": "OPENAI_API_KEY",
+      "max_input_tokens": 131072,
+      "max_output_tokens": 32768,
+      "input_usd_per_million": 5,
+      "cached_usd_per_million": 0.5,
+      "output_usd_per_million": 30,
+      "timeout_seconds": 900
+    },
+    "G1": {
+      "model": "deepseek-v4-flash-vision-exp",
+      "endpoint": "https://api.deepseek.com/chat/completions",
+      "protocol": "chat_completions",
+      "key_env": "DEEPSEEK_API_KEY",
+      "max_input_tokens": 131072,
+      "max_output_tokens": 24000,
+      "input_usd_per_million": 0.3,
+      "cached_usd_per_million": 0.003,
+      "output_usd_per_million": 0.4,
+      "timeout_seconds": 900
+    },
+    "G2": {
+      "model": "deepseek-v4-flash-vision-exp",
+      "endpoint": "https://api.deepseek.com/chat/completions",
+      "protocol": "chat_completions",
+      "key_env": "DEEPSEEK_API_KEY",
+      "max_input_tokens": 131072,
+      "max_output_tokens": 24000,
+      "input_usd_per_million": 0.3,
+      "cached_usd_per_million": 0.003,
+      "output_usd_per_million": 0.4,
+      "timeout_seconds": 900
+    }
+  }
+}

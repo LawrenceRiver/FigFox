@@ -4,6 +4,10 @@ import sys
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == 'factual':
+        from .factual.pipeline import main as factual_main
+        return factual_main(argv[1:])
     parser = argparse.ArgumentParser(prog='figfox-plus', description='Plus semantic SVG pipeline')
     commands = parser.add_subparsers(dest='command')
     offline = commands.add_parser('offline')

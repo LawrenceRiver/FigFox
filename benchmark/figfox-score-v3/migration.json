@@ -1,0 +1,29 @@
+{
+  "version": "v3-17-criteria",
+  "user_authorized_date": "2026-11-03",
+  "removed": {
+    "old_id": "D15",
+    "title": "位图使用合理"
+  },
+  "old_to_new": {
+    "D01": "D01",
+    "D02": "D02",
+    "D03": "D03",
+    "D04": "D04",
+    "D05": "D05",
+    "D06": "D06",
+    "D07": "D07",
+    "D08": "D08",
+    "D09": "D09",
+    "D10": "D10",
+    "D11": "D11",
+    "D12": "D12",
+    "D13": "D13",
+    "D14": "D14",
+    "D16": "D15",
+    "D17": "D16",
+    "D18": "D17"
+  },
+  "historical_registry_sha256": "78dce9c07e3096c1297afda583bade75c36bbac471c012bc8a17ea9fb8e799cd",
+  "basis": "Post-hoc projection of existing judgments; no rescoring, no provider calls, no historical receipt changes."
+}

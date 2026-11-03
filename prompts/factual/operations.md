@@ -1,0 +1,7 @@
+Local host operations executed in listed order:
+set: {op:"set",id:existingID,attributes:{key:value,...}}.
+text: {op:"text",id:existingID,text:literal}; existing child tspans remain, so use replace_svg for new math markup.
+remove: {op:"remove",id:existingID} removes element and descendants.
+append_svg: {op:"append_svg",parent_id:existingID_or_ROOT,svg:ONE_well_formed_SVG_element_string_with_xmlns_and_unique_ids}.
+replace_svg: {op:"replace_svg",id:existingID,svg:ONE_well_formed_SVG_element_string}; retains sibling position; root/canvas replacement forbidden.
+source_crop: {op:"source_crop",parent_id:existingID_or_ROOT,id:newUniqueID,source_box:[left,top,right,bottom],target_box:[x,y,width,height],remove_ids:[existingIDs]}; host removes selected IDs atomically then APPENDS embedded exact SOURCE PNG crop to parent. It cannot restore text/math/whole panels with raster. Each source crop <30% image and total <50%. Parent must survive removals. Ordering matters: later background rectangles can hide earlier images. SVG fragments must carry xmlns="http://www.w3.org/2000/svg". No scripts/foreignObject/event handlers/external URLs. url(#...) references must resolve and all final IDs unique. Preserve original canvas width/height/viewBox. No new tools/requests or code execution beyond these operations.
