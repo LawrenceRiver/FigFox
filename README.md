@@ -6,6 +6,28 @@ Scientific figures need more than a similar appearance: labels must retain their
 
 The output combines native text, shapes, paths, and groups with optional source-derived image assets. Photographs and textures can be preserved as movable, replaceable images while surrounding labels and connections remain native SVG elements.
 
+## Use as a skill / 作为 Skill 使用
+
+Run FigFox inside your current assistant to reconstruct an existing figure as native editable SVG. This mode uses the assistant's existing vision and file tools plus local SVG helpers; no separate model API key or SAM service is required. The API runner below remains a separate option.
+
+在当前助手内使用 FigFox，把已有图片还原为原生可编辑 SVG；无需另外配置模型 API 或启动 SAM 服务，下方 API runner 仍作为独立方式保留。
+
+```bash
+npx skills@latest add LawrenceRiver/FigFox --skill figfox
+```
+
+Then provide the source image and ask / 安装后提供原图并调用：
+
+> Use $figfox to reconstruct this figure as an editable SVG, preserve photos as independent images, compare the render against the source, and verify edits to text and shapes.
+>
+> 使用 $figfox 将这张图还原为可编辑 SVG，照片保留为独立图片，对照原图检查，并实际验证改字和移动图形。
+
+[Skill entry / Skill 入口](skills/figfox/SKILL.md) · [Installation and workflow / 安装与流程](docs/skill.md) · [Generated-figure to SVG example / 生成图转 SVG 案例](https://github.com/LawrenceRiver/FigFox-Gen-skill/tree/main/examples/v2-architecture/editable)
+
+[FigFox-Gen V2](https://github.com/LawrenceRiver/FigFox-Gen-skill) creates the new raster figure from Methodology; FigFox reconstructs a selected figure as editable SVG. Generation and reconstruction are separately invoked, so source errors are not silently redesigned during conversion.
+
+FigFox-Gen V2 负责根据 Methodology 生成新图；FigFox 负责把选定图片还原为可编辑 SVG，两步分别调用。
+
 ## How it works
 
 ```text

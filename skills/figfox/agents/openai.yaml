@@ -1,0 +1,6 @@
+interface:
+  display_name: "FigFox"
+  short_description: "Reconstruct scientific figures as editable SVG"
+  default_prompt: "Use $figfox to reconstruct this figure as a standalone editable SVG, compare it against the source, and verify native text, shapes, arrows and independently movable photos."
+policy:
+  allow_implicit_invocation: true
