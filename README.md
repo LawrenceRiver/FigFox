@@ -129,11 +129,7 @@ To obtain an editable SVG, select the generated PNG and invoke `$figfox` separat
 ## FigFoxBench
 
 <!-- FIGFOX:BENCH:START -->
-[**FigFoxBench-v3 on Hugging Face →**](https://huggingface.co/datasets/FigFoxBench/FigFoxBench-v3)
-
-Our benchmark collection contains **100 paper-extracted scientific figures**, grouped into four FC-adapted visual-clutter bins of 25 figures. The current dataset repository is private; access requires authorization from its maintainers. The 100-figure collection is distinct from the historical 80-figure ablation cohort.
-
-GitHub contains the [dataset overview](docs/figfoxbench.md) and [access policy](docs/figfoxbench-terms.md), rather than a mirror of the image collection. Current access is for noncommercial research evaluation, with commercial use and model training prohibited under the maintainers' policy, subject to independently granted third-party rights.
+[FigFoxBench-v3 on Hugging Face](https://huggingface.co/datasets/FigFoxBench/FigFoxBench-v3) supports research evaluation of scientific-figure reconstruction. The dataset is private; access requires maintainer authorization and follows the [access policy](docs/figfoxbench-terms.md). See the [overview](docs/figfoxbench.md) for details.
 <!-- FIGFOX:BENCH:END -->
 
 ## Video
