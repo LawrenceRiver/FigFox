@@ -2,10 +2,10 @@
   "cover": {
     "workflow": "FigFox Generate V2 → PNG → FigFox Skill native SVG reconstruction → scoped typography repair → exact native architecture group reuse → author-requested native SVG styling edits through FigFox Skill",
     "generated_source_sha256": "9417bea54c0e4a7967e0aa69e5adbb6c167734686a6437efb48066bf42e7f8d6",
-    "svg_sha256": "db3da86563461ec02bb171789f9bed3225e79341d8393dc1266f28cce851ab81",
+    "svg_sha256": "f8f3660e9bff4184df3b34ce3c20261499b91acd49c94216dd9c9d3c2b456336",
     "limitations": "Editable substitute font and flat fills approximate generated typography. Reused architecture groups retain native geometry and embedded photo assets. Red selection frames are editorial illustrations.",
     "illustrative": true,
-    "png_sha256": "9ddd75caace1b6751adb704edde855d458cf2c4a673eabe28212c2a9a3b683d2",
+    "png_sha256": "68dadce37cf5a2180fc7d8102a346b89c3672a9a6507c8d3cecd3cfe9b8bdd56",
     "architecture_art": {
       "source_file": "FigFox-v61-original-stages-refined.svg",
       "source_sha256": "f6bb9dc2c43c470d45ae17ebb837016b4f6bd69e60e297bf3574498223c5c85b",
@@ -14,16 +14,25 @@
         "final-editable-svg"
       ],
       "method": "Exact native group reuse, preserving descendants; remove only the original whole-architecture placement transforms and place the groups in local viewBox containers.",
-      "editorial_overlay": "Red outer selection and nine red object-selection boxes with handles; hand-drawn rod arrow uses architecture greys #A9ADB3/#4A5056. FigFox wordmark is bright orange with same-family text depth; all other cover text is black. Pale purple dots are decorative. No decorative diagonal or horizontal lines."
+      "editorial_overlay": "Red outer selection and nine red object-selection boxes with handles; hand-drawn rod arrow uses architecture greys #A9ADB3/#4A5056. FigFox wordmark is bright orange with subtle darker-orange hatching and black text depth; all other cover text is black. Pale purple dots are decorative. No decorative diagonal or horizontal lines."
     },
     "text_palette": {
       "wordmark": "#FF7A1A",
       "other_text": "#000000",
       "basis": "Author requested bright orange only inside the FigFox wordmark, all other text black.",
       "depth": [
-        "#F58B43",
-        "#E9722A"
-      ]
+        "#000000"
+      ],
+      "texture": "#C95D20 at 0.33 opacity"
+    },
+    "typography": {
+      "wordmark": "Original Arial bold restored; bright orange face, subtle darker-orange diagonal ink pattern and black offset depth layers.",
+      "supporting_lines": "Small black Arial Italic: Editable SVG / Reconstruct. Inspect. Repair.",
+      "unchanged_labels": [
+        "Source",
+        "Editable SVG"
+      ],
+      "preview": "PNG rendered locally with installed fonts; SVG retains native editable text and font fallbacks."
     }
   },
   "paper_figures": [
