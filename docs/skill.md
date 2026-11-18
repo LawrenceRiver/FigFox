@@ -46,17 +46,8 @@ Invoke `$FigFox-Gen-skill` with your Methodology. After selecting its PNG output
 
 先用 `$FigFox-Gen-skill` 生成 PNG，再选定图片并明确调用 `$figfox` 重建 SVG。生成 Skill 本身不交付可编辑 SVG，两步分别调用。
 
-## Verification scope / 验证范围
+## Output and limits / 输出与限制
 
-`tests/test_skill_package.py` copies only the skill directory into a temporary installed location and verifies native inventory, scoped text edits and unchanged neighbors, rejection of out-of-scope writes, image-wrapper warnings, paired quadrants, exact embedded source crops and actual PNG rendering. A separate real architecture-SVG editing probe checks use outside the repository. These checks establish tool behavior and portability; source fidelity still requires rendered image inspection.
+FigFox reconstructs a supplied figure as editable SVG and renders a PNG preview. Text, diagrams and connectors can be native SVG elements; photos may remain separate embedded crops. Compare the render with the source and verify any edits. Unclear source labels should not be guessed, and checks by the same assistant should not be described as independent human review.
 
-便携性检查覆盖独立复制安装、原生对象统计、局部编辑及邻居保留、越界拒绝、整图包装提示、成对区域、真实素材嵌入和实际渲染；另用真实架构 SVG 检查脱离仓库后的编辑流程。工具通过不等于视觉完全一致。
-
-[Example: FigFox-Gen V2 architecture / 示例：V2 架构图](https://github.com/LawrenceRiver/FigFox-Gen-skill/tree/main/examples/v2-architecture/editable). Its source PNG, editable SVG, rendering and editing receipts are retained with known limitations, including font approximation and the source's ambiguous arrow.
-
-
-### Recorded package checks / 本次打包检查
-
-The seven new portable-package tests and four related factual-pipeline tests pass. An isolated installation also completed actual text/group/photo edits and rendering without the source repository. The broader legacy runtime suite reports 36 failures in this environment (123 passing with the new tests); the untouched baseline reports 36 failures and 116 passing, including missing browser-runtime dependencies and unavailable process-isolation behavior. This release does not claim that broader runtime suite passes.
-
-七项新增便携性测试与四项相关流程测试通过，脱离仓库的安装实测也完成了改字、移动组和照片及渲染。旧运行器全套测试在当前环境有 36 项失败，未修改原版同样有 36 项失败，涉及浏览器运行依赖及进程隔离环境；不把这些测试宣称为通过。
+FigFox 根据原图重建可编辑 SVG，并渲染 PNG 预览。文字、图形和连线可使用原生 SVG 元素，照片可保留为独立内嵌裁图。应对照原图检查渲染结果并验证局部修改；看不清的文字不要猜测，同一助手的复核不应称为独立人工审稿。
