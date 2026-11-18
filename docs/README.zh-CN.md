@@ -19,7 +19,7 @@
 
 [FigFoxBench-v3](https://huggingface.co/datasets/FigFoxBench/FigFoxBench-v3) 包含 100 张论文图，按 FC-adapted 视觉杂乱度分成四组、每组 25 张；当前是私有数据集，需要维护者授权。它与历史 80 张消融实验不是同一项声明。访问条件与权利边界见[数据集说明](figfoxbench.md)和[访问政策](figfoxbench-terms.md)。
 
-演示视频由高峰凯（QCYTSN）整理，确认公开播放链接后更新[首页 Video 区域](../README.md#video)。陈卓轩（jason0917-eng）负责数据集入口与说明更新。
+演示视频由高枫凯（QCYTSN）整理，确认公开播放链接后更新[首页 Video 区域](../README.md#video)。陈卓宣（jason0917-eng）负责数据集入口与说明更新。
 
 ## 发布范围
 

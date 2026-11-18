@@ -8,12 +8,12 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#use-as-a-skill">Skill</a> ·
-  <a href="#figfoxbench">FigFoxBench</a> ·
-  <a href="#video">Video</a> ·
-  <a href="docs/harness.md">Harness</a> ·
-  <a href="docs/README.zh-CN.md">中文</a>
+  <a href="#quick-start"><img src="docs/assets/badges/quick-start.svg" alt="Quick start" height="28" /></a>
+  <a href="#use-as-a-skill"><img src="docs/assets/badges/skill.svg" alt="Skill" height="28" /></a>
+  <a href="#figfoxbench"><img src="docs/assets/badges/figfoxbench.svg" alt="FigFoxBench" height="28" /></a>
+  <a href="#video"><img src="docs/assets/badges/video.svg" alt="Video" height="28" /></a>
+  <a href="#architecture"><img src="docs/assets/badges/harness.svg" alt="Harness" height="28" /></a>
+  <a href="docs/README.zh-CN.md"><img src="docs/assets/badges/chinese.svg" alt="中文" height="28" /></a>
 </p>
 
 ---
@@ -28,6 +28,14 @@ FigFox reconstructs an existing scientific figure as native SVG text, shapes, pa
 </tr>
 </table>
 
+## Architecture
+
+<img src="docs/assets/framework-v80.png" alt="FigFox architecture: SAM-guided draft reconstruction, evidence-grounded inspection and guided native SVG repair" width="100%" />
+
+[Full-resolution architecture](docs/assets/framework-v80.png) · [Original SVG](docs/assets/framework-v80.svg) · [Harness details](docs/harness.md)
+
+The paper's three-stage framework, reused unchanged. The dashed DeepSeek gap-guidance branch is a historical development extension, not a regular stage of the evaluated final repair path or the current default configuration. Evaluated runs use four quadrant pairs; the frame-expansion illustration is a separate extension.
+
 ## See the reconstruction
 
 <img src="docs/assets/reconstruction-samples.png" alt="Two real FigFox examples showing the source raster, paired inspection views, before-and-after local repairs, and editable SVG output" width="100%" />
@@ -40,15 +48,6 @@ Two selected examples from our manuscript: source figures, paired inspection vie
 <img src="docs/assets/semantic-targeting-details.png" alt="Source, draft and repaired crops for four examples: text case, fill pattern, arrow direction and token count" width="100%" />
 
 These saved examples show how source evidence grounds a particular native SVG target. They are illustrative targeting cases, not a causal localization experiment. [Original figure SVG](docs/assets/semantic-targeting-details.svg)
-
-</details>
-
-<details>
-<summary><strong>View the paper framework</strong></summary>
-
-<img src="docs/assets/framework-v80.png" alt="The paper's three-stage framework: SAM-assisted draft reconstruction, evidence-grounded issue detection and guided native SVG repair" width="100%" />
-
-Original manuscript diagram, reused unchanged. Its dashed DeepSeek gap-guidance branch is a historical development extension, not a regular stage of the evaluated final repair path or the current default configuration. Evaluated runs use four quadrant pairs; the frame-expansion illustration is a separate extension. [Original framework SVG](docs/assets/framework-v80.svg)
 
 </details>
 
@@ -148,7 +147,7 @@ The source release includes the current runner, its shared native dependencies, 
 ## Contributors
 
 - [Honglin Liao / LawrenceRiver](https://github.com/LawrenceRiver) — project implementation and research.
-- [Gao Fengkai / QCYTSN](https://github.com/QCYTSN) — English prompt contributions; demo video coordination.
-- [Chen Zhuoxuan / jason0917-eng](https://github.com/jason0917-eng) — FigFoxBench access documentation; dataset link coordination.
+- [高枫凯 · Gao Fengkai / QCYTSN](https://github.com/QCYTSN) — English prompt contributions; demo video coordination.
+- [陈卓宣 · Chen Zhuoxuan / jason0917-eng](https://github.com/jason0917-eng) — FigFoxBench access documentation; dataset link coordination.
 
 Future video or dataset updates receive credit through their authors' own commits. See the [collaboration guide](docs/contributing.md).

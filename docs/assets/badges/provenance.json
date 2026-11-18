@@ -1,0 +1,46 @@
+{
+  "style": "Shields.io for-the-badge, the same badge system used by AutoFigure-Edit.",
+  "colors": {
+    "ffPurple": "#8981C4",
+    "ffPurpleInk": "#514B7D",
+    "ffOrangeInk": "#B56428"
+  },
+  "assets": [
+    {
+      "file": "quick-start.svg",
+      "source": "https://img.shields.io/badge/Quick_start-514B7D?style=for-the-badge&logo=python&logoColor=white",
+      "palette": "Named ICME manuscript colors ffPurple, ffPurpleInk and ffOrangeInk.",
+      "label": "Quick start"
+    },
+    {
+      "file": "skill.svg",
+      "source": "https://img.shields.io/badge/Skill-B56428?style=for-the-badge&logo=svg&logoColor=white",
+      "palette": "Named ICME manuscript colors ffPurple, ffPurpleInk and ffOrangeInk.",
+      "label": "Skill"
+    },
+    {
+      "file": "figfoxbench.svg",
+      "source": "https://img.shields.io/badge/FigFoxBench-8981C4?style=for-the-badge&logo=huggingface&logoColor=white",
+      "palette": "Named ICME manuscript colors ffPurple, ffPurpleInk and ffOrangeInk.",
+      "label": "FigFoxBench"
+    },
+    {
+      "file": "video.svg",
+      "source": "https://img.shields.io/badge/Video-B56428?style=for-the-badge&logo=youtube&logoColor=white",
+      "palette": "Named ICME manuscript colors ffPurple, ffPurpleInk and ffOrangeInk.",
+      "label": "Video"
+    },
+    {
+      "file": "harness.svg",
+      "source": "https://img.shields.io/badge/Harness-514B7D?style=for-the-badge&logo=github&logoColor=white",
+      "palette": "Named ICME manuscript colors ffPurple, ffPurpleInk and ffOrangeInk.",
+      "label": "Harness"
+    },
+    {
+      "file": "chinese.svg",
+      "source": "https://img.shields.io/badge/%E4%B8%AD%E6%96%87-8981C4?style=for-the-badge&logo=readthedocs&logoColor=white",
+      "palette": "Named ICME manuscript colors ffPurple, ffPurpleInk and ffOrangeInk.",
+      "label": "中文"
+    }
+  ]
+}
