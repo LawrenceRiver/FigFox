@@ -109,6 +109,14 @@ The fixed 80-figure study compares three configurations:
 
 Full versus its unrepaired draft measures the complete repair path. The SAM comparison also changes the draft; the three conditions do not form a complete factorial experiment. SAM remains optional, without an established aggregate quality advantage in the current study. Repair quality and editing utility are assessed separately.
 
+## FigFoxBench dataset
+
+[**FigFoxBench-v3 on Hugging Face**](https://huggingface.co/datasets/FigFoxBench/FigFoxBench-v3) is a private collection of 100 paper-extracted scientific figures, stratified by FC-adapted visual clutter into four bins of 25 figures each. Access requires authorization from the dataset maintainers; the image files are not mirrored in this public GitHub repository.
+
+**Noncommercial research evaluation only. Commercial use and model training are prohibited under the dataset access policy**, including pretraining, fine-tuning, reinforcement learning, distillation, and creating training data from the collection or its derivatives. See the [dataset overview](docs/figfoxbench.md) and [copyright and use restrictions](docs/figfoxbench-terms.md) for scope, third-party rights, and unresolved source permissions. These dataset conditions do not change the licensing of the FigFox software or override rights independently granted by original rights holders.
+
+**仅限非商业科研评测，禁止商用及模型训练。** 数据集图片保留在私有 Hugging Face 仓库中；具体限制及原始图片版权边界见[版权与使用声明](docs/figfoxbench-terms.md)。
+
 ## Repository scope
 
 This repository contains the public reconstruction runner, native editing implementation, prompts, configuration examples, criterion registry, and historical archive-verification script. The `factual` command is the reconstruction entry point; `chain` is an older workflow.
