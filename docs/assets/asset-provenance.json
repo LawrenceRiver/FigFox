@@ -33,7 +33,8 @@
         "Editable SVG"
       ],
       "preview": "PNG rendered locally with installed fonts; SVG retains native editable text and font fallbacks."
-    }
+    },
+    "preview_file": "figfox-hero-68dadce37cf5.png"
   },
   "paper_figures": [
     {

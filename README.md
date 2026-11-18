@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/figfox-hero.png" alt="FigFox — Scientific figures, made editable. Reconstruct. Inspect. Repair." width="100%" />
+  <img src="docs/assets/figfox-hero-68dadce37cf5.png" alt="FigFox — Editable SVG. Reconstruct. Inspect. Repair." width="100%" />
 </p>
 
 <p align="center">
