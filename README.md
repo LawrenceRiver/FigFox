@@ -3,11 +3,6 @@
 </p>
 
 <p align="center">
-  <strong>From a scientific figure to an editable SVG.</strong><br />
-  Preserve the content. Inspect the differences. Repair the right objects.
-</p>
-
-<p align="center">
   <a href="#quick-start"><img src="docs/assets/badges/quick-start.svg" alt="Quick start" height="28" /></a>
   <a href="https://github.com/LawrenceRiver/FigFox/tree/main/skills/figfox"><img src="docs/assets/badges/skill.svg" alt="Skill" height="28" /></a>
   <a href="https://github.com/LawrenceRiver/FigFox-Gen-skill"><img src="docs/assets/badges/figfox-gen.svg" alt="FigFox-Gen" height="28" /></a>
@@ -19,15 +14,7 @@
 
 ---
 
-FigFox reconstructs an existing scientific figure as native SVG text, shapes, paths and groups. It then compares the rendered draft with the source and applies scoped local repairs. Photographs and textures can remain independent, embedded source crops; labels and diagram structure stay editable.
-
-<table>
-<tr>
-<td width="33%"><strong>01 / Reconstruct</strong><br />Build one complete SVG draft, preserving layout, counts and directed relationships.</td>
-<td width="33%"><strong>02 / Inspect</strong><br />Read the source and draft side by side. Keep evidence, uncertainty and close-up views explicit.</td>
-<td width="33%"><strong>03 / Repair</strong><br />Bind confirmed differences to existing objects, apply native edits and render the result.</td>
-</tr>
-</table>
+FigFox turns a scientific figure into an editable SVG. You can change individual labels, shapes and connectors in an SVG editor. Photos and textures can remain embedded images. FigFox compares its draft with the source and applies local edits to the objects that differ.
 
 ## Skills
 
@@ -44,20 +31,20 @@ To edit a generated figure, select its PNG and invoke FigFox separately.
 
 [Full-resolution architecture](docs/assets/framework-v80.png) · [Original SVG](docs/assets/framework-v80.svg) · [Harness details](docs/harness.md)
 
-The paper's three-stage framework, reused unchanged. The dashed DeepSeek gap-guidance branch is a historical development extension, not a regular stage of the evaluated final repair path or the current default configuration. Evaluated runs use four quadrant pairs; the frame-expansion illustration is a separate extension.
+The API runner builds the draft (G0), compares it with the source (G1), then verifies the differences and plans edits (G2). Local tools apply the edits and render the result. The dashed DeepSeek branch in the diagram shows an earlier extension.
 
 ## See the reconstruction
 
 <img src="docs/assets/reconstruction-samples.png" alt="Two real FigFox examples showing the source raster, paired inspection views, before-and-after local repairs, and editable SVG output" width="100%" />
 
-Two selected examples from our manuscript: source figures, paired inspection views, matched repair details and reconstructed SVGs. They illustrate the workflow, rather than a guarantee of perfect reconstruction. [Original figure SVG](docs/assets/reconstruction-samples.svg)
+The examples pair each source figure with its reconstructed SVG and show where individual objects changed. [View the examples as SVG](docs/assets/reconstruction-samples.svg).
 
 <details>
 <summary><strong>Look closer: text, fill, arrows and object counts</strong></summary>
 
 <img src="docs/assets/semantic-targeting-details.png" alt="Source, draft and repaired crops for four examples: text case, fill pattern, arrow direction and token count" width="100%" />
 
-These saved examples show how source evidence grounds a particular native SVG target. They are illustrative targeting cases, not a causal localization experiment. [Original figure SVG](docs/assets/semantic-targeting-details.svg)
+The close-ups show changes to text case, fill, arrow direction and object count. [Open the detail view as SVG](docs/assets/semantic-targeting-details.svg).
 
 </details>
 
@@ -77,7 +64,7 @@ npm ci
 npx playwright install chromium
 ```
 
-Set `OPENAI_API_KEY` in your shell. Review [configs/factual.json](configs/factual.json) before a live run: it explicitly records the models, endpoints, token limits, estimated prices and run-directory budget. All three stages use the all-GPT configuration; provider availability and billing must be checked before use.
+Set `OPENAI_API_KEY` in your shell and review the model and budget settings in [configs/factual.json](configs/factual.json). Running the command below makes paid model requests. Replace `reference.png` with your input image.
 
 Start without a SAM service:
 
@@ -89,9 +76,9 @@ PYTHONPATH=src python -m figfox_plus factual \
   --no-sam
 ```
 
-The output directory contains `final.svg`, `final.png`, `result.json`, stage artifacts and request receipts. Execution success and visual fidelity are recorded separately.
+Open `final.svg` in an SVG editor and compare `final.png` with the source. The same directory also contains `result.json` and the stage records.
 
-For SAM-assisted source-asset reuse, [connect an existing local SAM3 service](docs/setup.md#optional-sam3), then omit `--no-sam`. See [runner details](docs/factual-pipeline.md) for hash-verified checkpoints, draft-only controls and interrupted-request recovery.
+To reuse selected source regions with SAM3, follow the [optional service setup](docs/setup.md#optional-sam3) and omit `--no-sam`. For checkpoint recovery or draft-only output, see the [runner guide](docs/factual-pipeline.md).
 
 ## Use as a Skill
 
@@ -120,42 +107,17 @@ Invoke `$FigFox-Gen-skill` to produce a PNG. To obtain editable SVG, select that
 ## Video
 
 <!-- FIGFOX:VIDEO:START -->
-**Demo video — being prepared.**
-
-The walkthrough will show source input, SVG reconstruction, local repair, and actual text/shape editing. The verified playback link will be added here by [QCYTSN](https://github.com/QCYTSN).
-
-[Demo publication guide](docs/media.md)
+The demo video is awaiting publication. You can [view the reconstruction examples](#see-the-reconstruction) in the meantime.
 <!-- FIGFOX:VIDEO:END -->
 
-## Evaluation and reproducibility
+## Evaluation and source
 
-The [17-criterion registry](benchmark/figfox-score-v3/README.md) covers fidelity and editability. Current harness visual judgments, historical API receipts and human editing evidence are distinct sources. Unknown and not-applicable judgments remain explicit; a valid SVG or successful edit execution alone does not establish visual quality.
+The [evaluation guide](docs/evaluation.md) describes how FigFox assesses fidelity and editability. To inspect a result yourself, compare the rendered figure with its source and try editing the relevant text or shape in the SVG.
 
-The historical 80-figure study compares Full, Without SAM, and Without repair. Full and Without repair share the exact same G0 draft; Without SAM uses a separately generated SAM-off draft. Checkpoint continuation time is distinct from a fresh run beginning with the source.
-
-[Evaluation protocol](docs/evaluation.md) · [Offline validation scope](docs/validation-factual.md) · [Archive verifier](scripts/verify_ablation.py)
-
-## Repository
-
-```text
-src/figfox_plus/             G0/G1/G2 runner and shared native implementation
-prompts/                    reconstruction, inspection and repair instructions
-runtime/ · adapters/        local rendering and source-asset support
-configs/                    explicit provider and budget configurations
-skills/figfox/              self-contained assistant Skill
-benchmark/figfox-score-v3/   current criterion registry and numbering migration
-tests/                      offline regression checks
-docs/                       setup, harness, evaluation and collaboration
-```
-
-The source release includes the current runner, its shared native dependencies, the standalone Skill and offline checks. Full datasets are hosted separately; local run artifacts, credentials and weights stay outside Git.
-
-[Release provenance and scope](docs/release-scope.md) · [Contributing](docs/contributing.md)
+[Validation](docs/validation-factual.md) · [Release scope and licensing](docs/release-scope.md) · [Contributing](docs/contributing.md)
 
 ## Contributors
 
 - [Honglin Liao / LawrenceRiver](https://github.com/LawrenceRiver) — project implementation and research.
 - [高枫凯 · Gao Fengkai / QCYTSN](https://github.com/QCYTSN) — English prompt contributions; demo video coordination.
 - [陈卓宣 · Chen Zhuoxuan / jason0917-eng](https://github.com/jason0917-eng) — FigFoxBench access documentation; dataset link coordination.
-
-Future video or dataset updates receive credit through their authors' own commits. See the [collaboration guide](docs/contributing.md).

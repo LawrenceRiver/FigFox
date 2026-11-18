@@ -39,6 +39,9 @@ test-results/
 *.pth
 *.ckpt
 *.safetensors
+*.onnx
+*.gguf
+pytorch_model*.bin
 # Unpublished manuscript and research bundles
 /FigFox_ICME2027.pdf
 /research/
