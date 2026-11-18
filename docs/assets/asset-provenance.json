@@ -2,10 +2,10 @@
   "cover": {
     "workflow": "FigFox Generate V2 → PNG → FigFox Skill native SVG reconstruction → scoped typography repair → exact native architecture group reuse → author-requested native SVG styling edits through FigFox Skill",
     "generated_source_sha256": "9417bea54c0e4a7967e0aa69e5adbb6c167734686a6437efb48066bf42e7f8d6",
-    "svg_sha256": "bde4227acc55dba22837657e044b20f96e98f98384ff42b61ef202aef8b4c952",
+    "svg_sha256": "db3da86563461ec02bb171789f9bed3225e79341d8393dc1266f28cce851ab81",
     "limitations": "Editable substitute font and flat fills approximate generated typography. Reused architecture groups retain native geometry and embedded photo assets. Red selection frames are editorial illustrations.",
     "illustrative": true,
-    "png_sha256": "0fcd9a6d1c2b041fce52653dec98f5a902dbace33ef82b38aeb7b26dd752ae70",
+    "png_sha256": "9ddd75caace1b6751adb704edde855d458cf2c4a673eabe28212c2a9a3b683d2",
     "architecture_art": {
       "source_file": "FigFox-v61-original-stages-refined.svg",
       "source_sha256": "f6bb9dc2c43c470d45ae17ebb837016b4f6bd69e60e297bf3574498223c5c85b",
@@ -14,7 +14,16 @@
         "final-editable-svg"
       ],
       "method": "Exact native group reuse, preserving descendants; remove only the original whole-architecture placement transforms and place the groups in local viewBox containers.",
-      "editorial_overlay": "Red outer selection and nine individual red object-selection boxes with handles; red hand-drawn rod arrow. Typography uses the ICME orange #F2AA71 with same-family offset text depth; pale purple dots are decorative. No decorative diagonal or horizontal lines."
+      "editorial_overlay": "Red outer selection and nine red object-selection boxes with handles; hand-drawn rod arrow uses architecture greys #A9ADB3/#4A5056. FigFox wordmark is bright orange with same-family text depth; all other cover text is black. Pale purple dots are decorative. No decorative diagonal or horizontal lines."
+    },
+    "text_palette": {
+      "wordmark": "#FF7A1A",
+      "other_text": "#000000",
+      "basis": "Author requested bright orange only inside the FigFox wordmark, all other text black.",
+      "depth": [
+        "#F58B43",
+        "#E9722A"
+      ]
     }
   },
   "paper_figures": [
