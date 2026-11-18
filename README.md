@@ -30,12 +30,12 @@ FigFox reconstructs an existing scientific figure as native SVG text, shapes, pa
 
 ## Skills
 
-| Skill | Input → output | Links |
+| Skill | Input → output | Install |
 | --- | --- | --- |
-| **FigFox** | Existing figure → editable SVG, with inspection and local repair | [Skill source](skills/figfox/SKILL.md) · [Install and use](#use-as-a-skill) |
-| **FigFox-Gen** | Methodology, with optional visual references → new scientific figure (PNG) | [GitHub repository](https://github.com/LawrenceRiver/FigFox-Gen-skill) · [Skill source](https://github.com/LawrenceRiver/FigFox-Gen-skill/blob/main/SKILL.md) · [Install and use](#generate-with-figfox-gen) |
+| [FigFox](skills/figfox/SKILL.md) | Existing figure → editable SVG, with inspection and local repair | `npx skills@latest add LawrenceRiver/FigFox --skill figfox` |
+| [FigFox-Gen](https://github.com/LawrenceRiver/FigFox-Gen-skill) | Methodology and optional references → new PNG | `npx skills@latest add LawrenceRiver/FigFox-Gen-skill --skill FigFox-Gen-skill` |
 
-To make a new figure editable, generate a PNG with **FigFox-Gen**, choose the image, then explicitly invoke **FigFox** to reconstruct it as SVG.
+To edit a generated figure, select its PNG and invoke FigFox separately.
 
 ## Architecture
 
@@ -94,37 +94,21 @@ For SAM-assisted source-asset reuse, [connect an existing local SAM3 service](do
 
 ## Use as a Skill
 
-### Reconstruct with FigFox
-
-[FigFox Skill source](skills/figfox/SKILL.md) · [Repository](https://github.com/LawrenceRiver/FigFox)
-
-The Skill uses the calling assistant for reconstruction, inspection and repair planning, with bundled local tools for rendering and scoped SVG edits. It needs no separate model API key or SAM service.
+Install [FigFox](skills/figfox/SKILL.md) for reconstruction inside your assistant:
 
 ```bash
 npx skills@latest add LawrenceRiver/FigFox --skill figfox
 ```
 
-Then attach your figure and ask:
+Provide an existing figure and invoke `$figfox`. It produces an editable SVG and a PNG preview, then supports inspection and local repair. The Skill uses the current assistant and local tools; it does not require a separate model API key or SAM service. See [installation and workflow](docs/skill.md).
 
-> Use $figfox to reconstruct this figure as an editable SVG. Preserve native text and shapes, keep photos as independent images, compare the rendered draft with the source, and verify actual edits before delivery.
-
-[Skill entry](skills/figfox/SKILL.md) · [Installation and workflow](docs/skill.md) · [Editable architecture example](https://github.com/LawrenceRiver/FigFox-Gen-skill/tree/main/examples/v2-architecture/editable)
-
-### Generate with FigFox-Gen
-
-[FigFox-Gen repository](https://github.com/LawrenceRiver/FigFox-Gen-skill) · [Skill source](https://github.com/LawrenceRiver/FigFox-Gen-skill/blob/main/SKILL.md) · [Examples](https://github.com/LawrenceRiver/FigFox-Gen-skill#examples)
-
-The companion generation Skill turns a scientific Methodology into a new raster PNG. Its current V2 workflow plans the figure from method details, peer evidence and scoped visual references before image generation. It can use suitable source assets and optional style references.
+For a new figure from Methodology and optional references, install [FigFox-Gen](https://github.com/LawrenceRiver/FigFox-Gen-skill):
 
 ```bash
 npx skills@latest add LawrenceRiver/FigFox-Gen-skill --skill FigFox-Gen-skill
 ```
 
-Provide your Methodology and, optionally, a reference image, then ask:
-
-> Use $FigFox-Gen-skill to generate a scientific figure from this Methodology.
-
-To obtain an editable SVG, select the generated PNG and invoke `$figfox` separately. Generation delivers PNG; SVG reconstruction is a second, explicitly requested step. See the generation repository's [installation requirements](https://github.com/LawrenceRiver/FigFox-Gen-skill#installation).
+Invoke `$FigFox-Gen-skill` to produce a PNG. To obtain editable SVG, select that PNG and invoke `$figfox` separately. See the [generation Skill requirements](https://github.com/LawrenceRiver/FigFox-Gen-skill#installation).
 
 ## FigFoxBench
 
