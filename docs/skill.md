@@ -30,6 +30,22 @@ Text, notation, diagrams and connectors are native SVG elements. Photos may rema
 
 文字、公式、图形和连线保持原生可编辑，照片可作为独立内嵌裁图；不能用整图或整片文字截图冒充重建。未获纠错要求时保留原图可见内容，不猜测看不清的标签；同一助手顺序检查不宣称独立审稿。
 
+## Companion generation Skill / 配套生成 Skill
+
+[FigFox-Gen repository / 生成 Skill 仓库](https://github.com/LawrenceRiver/FigFox-Gen-skill) · [Skill source / 技能入口](https://github.com/LawrenceRiver/FigFox-Gen-skill/blob/main/SKILL.md)
+
+FigFox-Gen creates a new scientific figure PNG from Methodology, with optional visual references. Install it separately:
+
+FigFox-Gen 从 Methodology 生成新的科研图 PNG，可提供视觉参考；它需要单独安装：
+
+```bash
+npx skills@latest add LawrenceRiver/FigFox-Gen-skill --skill FigFox-Gen-skill
+```
+
+Invoke `$FigFox-Gen-skill` with your Methodology. After selecting its PNG output, explicitly invoke `$figfox` to reconstruct it as editable SVG. The generation Skill does not itself promise SVG output. See its [installation requirements](https://github.com/LawrenceRiver/FigFox-Gen-skill#installation) and [examples](https://github.com/LawrenceRiver/FigFox-Gen-skill#examples).
+
+先用 `$FigFox-Gen-skill` 生成 PNG，再选定图片并明确调用 `$figfox` 重建 SVG。生成 Skill 本身不交付可编辑 SVG，两步分别调用。
+
 ## Verification scope / 验证范围
 
 `tests/test_skill_package.py` copies only the skill directory into a temporary installed location and verifies native inventory, scoped text edits and unchanged neighbors, rejection of out-of-scope writes, image-wrapper warnings, paired quadrants, exact embedded source crops and actual PNG rendering. A separate real architecture-SVG editing probe checks use outside the repository. These checks establish tool behavior and portability; source fidelity still requires rendered image inspection.

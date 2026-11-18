@@ -15,6 +15,21 @@
 - **完整 API runner**：配置 G0 构建、G1 检查、G2 复核与修复规划，随后本地执行原生编辑。安装和命令见[英文首页](../README.md#quick-start)及[安装说明](setup.md)。当前默认使用全 GPT 配置，运行前核对模型、价格和预算。
 - **Skill**：`npx skills@latest add LawrenceRiver/FigFox --skill figfox`，然后向当前助手提供原图并调用 `$figfox`。它使用当前助手的视觉与文件工具，不另接模型 API，也不要求 SAM 服务。见[技能说明](skill.md)。
 
+## 两个配套 Skill
+
+| Skill | 用途 | 链接 |
+| --- | --- | --- |
+| **FigFox** | 把已有图片重建成可编辑 SVG，并对照原图检查、局部修复 | [Skill 入口](../skills/figfox/SKILL.md) · [安装与使用](skill.md) |
+| **FigFox-Gen** | 从 Methodology 和可选视觉参考生成新的科研图 PNG | [生成 Skill 仓库](https://github.com/LawrenceRiver/FigFox-Gen-skill) · [Skill 入口](https://github.com/LawrenceRiver/FigFox-Gen-skill/blob/main/SKILL.md) |
+
+安装生成 Skill：
+
+```bash
+npx skills@latest add LawrenceRiver/FigFox-Gen-skill --skill FigFox-Gen-skill
+```
+
+向助手提供方法正文，调用 `$FigFox-Gen-skill` 生成图片；选定生成结果后，再明确调用 `$figfox` 重建可编辑 SVG。生成与重建是两次独立调用。安装环境与案例见[生成仓库说明](https://github.com/LawrenceRiver/FigFox-Gen-skill#installation)。
+
 ## FigFoxBench 与演示
 
 [FigFoxBench-v3](https://huggingface.co/datasets/FigFoxBench/FigFoxBench-v3) 包含 100 张论文图，按 FC-adapted 视觉杂乱度分成四组、每组 25 张；当前是私有数据集，需要维护者授权。它与历史 80 张消融实验不是同一项声明。访问条件与权利边界见[数据集说明](figfoxbench.md)和[访问政策](figfoxbench-terms.md)。

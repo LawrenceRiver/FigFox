@@ -28,6 +28,15 @@ FigFox reconstructs an existing scientific figure as native SVG text, shapes, pa
 </tr>
 </table>
 
+## Skills
+
+| Skill | Input → output | Links |
+| --- | --- | --- |
+| **FigFox** | Existing figure → editable SVG, with inspection and local repair | [Skill source](skills/figfox/SKILL.md) · [Install and use](#use-as-a-skill) |
+| **FigFox-Gen** | Methodology, with optional visual references → new scientific figure (PNG) | [GitHub repository](https://github.com/LawrenceRiver/FigFox-Gen-skill) · [Skill source](https://github.com/LawrenceRiver/FigFox-Gen-skill/blob/main/SKILL.md) · [Install and use](#generate-with-figfox-gen) |
+
+To make a new figure editable, generate a PNG with **FigFox-Gen**, choose the image, then explicitly invoke **FigFox** to reconstruct it as SVG.
+
 ## Architecture
 
 <img src="docs/assets/framework-v80.png" alt="FigFox architecture: SAM-guided draft reconstruction, evidence-grounded inspection and guided native SVG repair" width="100%" />
@@ -85,6 +94,10 @@ For SAM-assisted source-asset reuse, [connect an existing local SAM3 service](do
 
 ## Use as a Skill
 
+### Reconstruct with FigFox
+
+[FigFox Skill source](skills/figfox/SKILL.md) · [Repository](https://github.com/LawrenceRiver/FigFox)
+
 The Skill uses the calling assistant for reconstruction, inspection and repair planning, with bundled local tools for rendering and scoped SVG edits. It needs no separate model API key or SAM service.
 
 ```bash
@@ -97,7 +110,21 @@ Then attach your figure and ask:
 
 [Skill entry](skills/figfox/SKILL.md) · [Installation and workflow](docs/skill.md) · [Editable architecture example](https://github.com/LawrenceRiver/FigFox-Gen-skill/tree/main/examples/v2-architecture/editable)
 
-[FigFox-Gen](https://github.com/LawrenceRiver/FigFox-Gen-skill) generates a new raster figure from Methodology. FigFox reconstructs a selected existing figure. These are separately invoked workflows.
+### Generate with FigFox-Gen
+
+[FigFox-Gen repository](https://github.com/LawrenceRiver/FigFox-Gen-skill) · [Skill source](https://github.com/LawrenceRiver/FigFox-Gen-skill/blob/main/SKILL.md) · [Examples](https://github.com/LawrenceRiver/FigFox-Gen-skill#examples)
+
+The companion generation Skill turns a scientific Methodology into a new raster PNG. Its current V2 workflow plans the figure from method details, peer evidence and scoped visual references before image generation. It can use suitable source assets and optional style references.
+
+```bash
+npx skills@latest add LawrenceRiver/FigFox-Gen-skill --skill FigFox-Gen-skill
+```
+
+Provide your Methodology and, optionally, a reference image, then ask:
+
+> Use $FigFox-Gen-skill to generate a scientific figure from this Methodology.
+
+To obtain an editable SVG, select the generated PNG and invoke `$figfox` separately. Generation delivers PNG; SVG reconstruction is a second, explicitly requested step. See the generation repository's [installation requirements](https://github.com/LawrenceRiver/FigFox-Gen-skill#installation).
 
 ## FigFoxBench
 
