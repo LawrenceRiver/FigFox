@@ -1,0 +1,12 @@
+{
+  "src/figfox_plus/factual/facts.py": "de7451b3f7e96b134493ef248b8b1625fdae29805074523a1381b890661719c2",
+  "src/figfox_plus/factual/transport.py": "9cb22d12c147d987a741784ab7fe0f7955c2e4a7b0a9d774c9f2bdb18ecc838a",
+  "src/figfox_plus/factual/__init__.py": "177d3046b6613a50f33f7f5f38f4eacc7f5d85c6b2ef10704cd69c22ad117e2c",
+  "src/figfox_plus/factual/pipeline.py": "a58d08c5a964e4286a024a852c9a258904fbb2a702e2c1ae62df0cbce36dd4b2",
+  "src/figfox_plus/factual/contracts.py": "2276f55cca4d9c060064e87da47cdaea64d04a73ff1a10e97381071a16733255",
+  "src/figfox_plus/factual/views.py": "68246494d80db89528e781ce52ffa020b7347cef1859a42cb4ec2c93047b2ff3",
+  "src/figfox_plus/factual/operations.json": "a79af96ab2f5d6fc9541c675f340d5491fd8bb98c169b9ab30e33a31ca33041c",
+  "prompts/factual/operations.md": "258b619789d510d09291cccc9e8f4e94842e3923378aecd0529a883bca76d104",
+  "prompts/factual/g2.md": "3093560c6c16d57b23c4bb6417ea8b2af46e1b04ccaac06ab5bcc8d5c317fa91",
+  "prompts/factual/g1.md": "37fcb3368c8c5852781f78596aae3daf7b35de215c2cadd343ca22f523478447"
+}

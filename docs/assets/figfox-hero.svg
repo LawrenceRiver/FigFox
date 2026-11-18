@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2172" height="724" viewBox="0 0 2172 724" role="img" aria-labelledby="cover-title cover-desc">
+<title id="cover-title">FigFox — Scientific figures, made editable.</title><desc id="cover-desc">Native SVG reconstruction of the FigFox Generate cover. Two illustrative corresponding diagrams represent a scientific source and editable SVG; the output circle has selection handles. No experimental result is depicted.</desc>
+<rect id="background" width="2172" height="724" fill="#ffffff" />
+<g id="brand" font-family="Arial,Helvetica,sans-serif" fill="#0c4947">
+<text id="wordmark" x="36" y="339" font-size="230" font-weight="700" textLength="747" lengthAdjust="spacingAndGlyphs">FigFox</text>
+<text id="subtitle" x="43" y="457" font-size="58" font-weight="700" fill="#281c2c" textLength="899" lengthAdjust="spacingAndGlyphs">Scientific figures, made editable.</text>
+<text id="tagline" x="44" y="551" font-size="54" font-weight="700" fill="#281c2c" textLength="738" lengthAdjust="spacingAndGlyphs">Reconstruct. Inspect. Repair.</text>
+</g>
+<g id="source-diagram" stroke="#155d59" stroke-linejoin="round">
+<rect id="source-frame" x="973" y="212" width="443" height="320" rx="20" fill="#f8f5ed" stroke-width="4" />
+<text id="source-label" x="1194.5" y="274" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="51" font-weight="700" fill="#281c2c" stroke="none">Source</text>
+<rect id="source-rectangle" x="1010" y="345" width="154" height="102" rx="15" fill="#b6dbd4" stroke-width="6" />
+<path id="source-link" d="M1164 397H1241" fill="none" stroke-width="10" /><path id="source-arrowhead" d="M1241 381L1263 397L1241 413Z" fill="#155d59" stroke-width="2" />
+<circle id="source-circle" cx="1327" cy="398" r="62" fill="#b6dbd4" stroke-width="6" />
+</g>
+<g id="reconstruction-link">
+<text id="relation-label" x="1425" y="345" font-family="Arial,Helvetica,sans-serif" font-size="28" font-weight="700" fill="#281c2c" textLength="225" lengthAdjust="spacingAndGlyphs">reconstructed as</text>
+<path id="main-arrow-shaft" d="M1425 392H1627" fill="none" stroke="#d34d3a" stroke-width="12" />
+<path id="main-arrowhead" d="M1627 373L1656 392L1627 411Z" fill="#d34d3a" />
+</g>
+<g id="editable-diagram" stroke="#155d59" stroke-linejoin="round">
+<rect id="editable-frame" x="1665" y="212" width="472" height="320" rx="20" fill="#fbe9d7" stroke-width="4" />
+<text id="editable-label" x="1901" y="274" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="51" font-weight="700" fill="#281c2c" stroke="none">Editable SVG</text>
+<rect id="editable-rectangle" x="1701" y="345" width="154" height="102" rx="15" fill="#b6dbd4" stroke-width="6" />
+<path id="editable-link" d="M1855 397H1934" fill="none" stroke-width="10" /><path id="editable-arrowhead" d="M1934 381L1956 397L1934 413Z" fill="#155d59" stroke-width="2" />
+<circle id="editable-circle" cx="2026" cy="398" r="62" fill="#b6dbd4" stroke-width="6" />
+</g>
+<g id="selection" fill="#ffffff" stroke="#d34d3a" stroke-width="5" stroke-linejoin="round">
+<rect id="selection-frame" x="1962" y="330" width="132" height="135" fill="none" />
+<rect id="handle-top-left" x="1952" y="320" width="21" height="21" />
+<rect id="handle-top-right" x="2084" y="320" width="21" height="21" />
+<rect id="handle-bottom-left" x="1952" y="455" width="21" height="21" />
+<rect id="handle-bottom-right" x="2084" y="455" width="21" height="21" />
+</g>
+</svg>

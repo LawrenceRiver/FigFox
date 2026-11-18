@@ -21,7 +21,7 @@ compatibility.
 ## Run
 
 Install the Python requirements and the existing local SAM3 service described
-in the legacy installation guide. Set credentials through the process
+in [the setup guide](setup.md). Set credentials through the process
 environment. Provider endpoints, model identifiers, limits and prices are
 explicit in the configuration. No keys are stored in configuration files.
 
@@ -61,10 +61,9 @@ fails. A fresh independent retry requires a distinct recorded attempt and
 budget review. The configuration budget covers the entire output directory.
 
 The new runner has offline integration and historical native-replay tests.
-No new paid cohort was run for this release. Its default G1/G2 provider is
-DeepSeek. The separate historical-cohort configuration records GPT-5.5 for
-G1/G2, as used by the completed 80-image cohort; changing providers requires
-fresh evaluation rather than relabeling historical results.
+No new paid cohort was run for this release. The public default and the separate historical-cohort configuration record
+GPT-5.5 for G0/G1/G2. The former mixed-provider default is no longer selected.
+Changing providers requires fresh evaluation rather than relabeling historical results.
 
 ## Evaluation
 

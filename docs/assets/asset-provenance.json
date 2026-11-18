@@ -1,0 +1,41 @@
+{
+  "cover": {
+    "workflow": "FigFox Generate V2 \u2192 PNG \u2192 FigFox Skill native SVG reconstruction \u2192 scoped typography repair \u2192 copy-only native text/shape probe",
+    "generated_source_sha256": "9417bea54c0e4a7967e0aa69e5adbb6c167734686a6437efb48066bf42e7f8d6",
+    "svg_sha256": "f154e02f2bc82046519b5a83e0a62dad1cd7e188dc2078f7e4327536d442de3a",
+    "limitations": "Editable substitute font and flat fills approximate generated font and raster microtexture.",
+    "illustrative": true
+  },
+  "paper_figures": [
+    {
+      "file": "framework-v80.svg",
+      "sha256": "831416c8e7d499ff44341fa7f20cfec86d374ab66d1d3471465fc210cf73c022",
+      "source": "Author-provided final manuscript figure; reused unchanged."
+    },
+    {
+      "file": "framework-v80.png",
+      "sha256": "9253eefe877077c7a15cc5f614f434875799055bb942a32adcc67c3e43f7afd6",
+      "source": "Author-provided final manuscript figure; reused unchanged."
+    },
+    {
+      "file": "reconstruction-samples.svg",
+      "sha256": "239138c26436f68eb4dc42267a14d6f5575751ff39718a79cb447725bbf03e49",
+      "source": "Author-provided final manuscript figure; reused unchanged."
+    },
+    {
+      "file": "reconstruction-samples.png",
+      "sha256": "e1e9354b1798042e18431b99c74bc694127dfdcb6fb4b7f45a5b93c36036b46e",
+      "source": "Author-provided final manuscript figure; reused unchanged."
+    },
+    {
+      "file": "semantic-targeting-details.svg",
+      "sha256": "a8ae446ae7ddedf47c5bc18099f5a8c6ba4d3d32be0bef77dd86366476ce033d",
+      "source": "Author-provided final manuscript figure; reused unchanged."
+    },
+    {
+      "file": "semantic-targeting-details.png",
+      "sha256": "0e27a105a7351aee11ca1cc4ba242b4d141ce5ccb402d9173743f7f8a5b3de4c",
+      "source": "Author-provided final manuscript figure; reused unchanged."
+    }
+  ]
+}

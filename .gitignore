@@ -1,10 +1,50 @@
-.DS_Store
+# Python and local environments
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .venv/
+venv/
+*.egg-info/
+# Node and browsers
 node_modules/
-runs/
+playwright-report/
+test-results/
+# Local runs, experiment outputs, uploads and caches
+/runs/
+/output/
+/outputs/
+/uploads/
+/logs/
+/experiment-results/
+/raw-responses/
+/transport-receipts/
+/checkpoints/
+/external_comparison/
+/.cache/
+/.huggingface/
+/hf_cache/
+*.log
+*.zip
+*.tar.gz
+*.mp4
+*.mov
+# Credentials and model weights
 .env
 .env.*
+!.env.example
+*.secrets*
 *.pt
+*.pth
+*.ckpt
+*.safetensors
+# Unpublished manuscript and research bundles
+/FigFox_ICME2027.pdf
+/research/
+/experiments/
+# Machine and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

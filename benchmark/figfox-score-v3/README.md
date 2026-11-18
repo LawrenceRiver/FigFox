@@ -1,13 +1,9 @@
 # FigFox 17-criterion registry
 
-`registry.json` defines D01–D17. `migration.json` records the mapping from the
-historical 18-criterion registry. The former D15 bitmap-usage criterion is
-excluded; the final three criteria shift down by one.
+`registry.json` defines D01–D17. `migration.json` records the mapping from historical 18-criterion provider records. The former D15 bitmap-usage criterion is excluded; former D16–D18 shift to D15–D17.
 
-For an aggregate criterion score, report `100 × pass / (pass + fail)` alongside
-the pass, fail, unknown and not-applicable counts. If the denominator is zero,
-the score is unavailable. This statistic is not an editing-software success
-rate and does not convert unknown judgments to passes.
+For current harness/human aggregates, pass, partial pass and fail map to 1, 0.5 and 0; compute `100 × sum(valid item scores) / valid item count`. Exclude unknown and not-applicable judgments, report their counts and retain the valid-item mask. A zero valid denominator is unavailable. D09 is retained for historical display and excluded from current aggregates.
 
-Historical provider responses retain their original numbering and hashes.
-Do not present projected 17-item records as new provider evaluations.
+Historical binary provider summaries may use `100 × pass / (pass + fail)`; label them separately and do not present them as the current partial-credit aggregate. Preserve original provider receipts, numbering and hashes. A projected 17-item record is not a new provider evaluation.
+
+Real edit operations are required for editing-software claims. See the [evaluation protocol](../../docs/evaluation.md).
