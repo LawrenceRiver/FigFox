@@ -1,75 +1,30 @@
 # Factual reconstruction pipeline
 
-The current executable connects reference preparation, G0 construction, G1
-factual inspection, G2 independent checking and repair planning, and local SVG
-execution in one process. Each stage persists its inputs and receipts.
-
-```text
-reference → optional SAM3 assets → G0 SVG → paired views
-          → G1 facts and differences → requested close-ups
-          → G2 independent checks and scoped native edits
-          → local execution → SVG and PNG
-```
-
-G1 records source and candidate readings separately. G2 checks every recorded
-fact, can add evidenced differences, and assigns each issue either concrete
-operations or an unresolved disposition. Native execution enforces target
-scope, canvas identity, operation coverage, unique IDs and safe references.
-Execution acceptance does not establish visual quality or editing-software
-compatibility.
+The API runner builds an SVG draft (G0), inspects it alongside the source (G1), then verifies differences and plans local edits (G2). It writes the editable figure to `final.svg` and its preview to `final.png`.
 
 ## Run
 
-Install the Python requirements and the existing local SAM3 service described
-in [the setup guide](setup.md). Set credentials through the process
-environment. Provider endpoints, model identifiers, limits and prices are
-explicit in the configuration. No keys are stored in configuration files.
+Follow the [setup guide](setup.md) and set `OPENAI_API_KEY` in your shell. Review the models and budget in `configs/factual.json` before running.
 
 ```bash
 PYTHONPATH=src python -m figfox_plus factual \
-  --image reference.png --out runs/example --config configs/factual.json
+  --image reference.png --out runs/example --config configs/factual.json --no-sam
 ```
 
-This measures the fresh process, including G0 preparation. Use `--no-sam` for
-the SAM-off condition and `--no-repair` for the G0-only control.
+Replace `reference.png` with your source. To use SAM3, start the [optional service](setup.md#optional-sam3) and omit `--no-sam`. Add `--no-repair` for draft-only output.
 
 ## Continue from a G0 checkpoint
+
+Reuse a saved draft that matches the source image and the original SAM setting. For a draft created without SAM3, run:
 
 ```bash
 PYTHONPATH=src python -m figfox_plus factual \
   --image reference.png --out runs/continued --config configs/factual.json \
-  --checkpoint checkpoints/example
+  --no-sam --checkpoint runs/example/G0
 ```
 
-A checkpoint contains `initial.svg` and `manifest.json`, with source SHA256,
-initial SVG SHA256, the SAM assignment and generation provenance. All are
-checked before the checkpoint is used. G0 and its descendants remain part of
-the same sample lineage. An A/C comparison uses the same checkpoint; it does
-not generate a second control draft.
+The runner checks the source and SVG hashes against the checkpoint manifest. It reuses the verified draft and runs the remaining stages in the new output directory.
 
-Historical checkpoint continuation is identified as such. Its measured
-continuation time is not a fresh end-to-end measurement. The 80-image cohort
-reused historical drafts and has separate provider-stage measurements.
+## Interrupted runs
 
-## Requests and recovery
-
-Requests persist a unique identity and conservative charge reserve before
-HTTP dispatch. Interrupted or ambiguous calls are not automatically resent.
-Completed replies are reused only when input and response hashes match.
-Provider output and usage are preserved even when later schema validation
-fails. A fresh independent retry requires a distinct recorded attempt and
-budget review. The configuration budget covers the entire output directory.
-
-The new runner has offline integration and historical native-replay tests.
-No new paid cohort was run for this release. The public default and the separate historical-cohort configuration record
-GPT-5.5 for G0/G1/G2. The former mixed-provider default is no longer selected.
-Changing providers requires fresh evaluation rather than relabeling historical results.
-
-## Evaluation
-
-The current registry has 17 criteria. The former bitmap-usage criterion D15
-was removed; former D16–D18 map to D15–D17. Existing 18-item provider receipts
-remain historical evidence. A 17-item report is a disclosed projection of
-those judgments, not a newly issued provider receipt. Unknown and inapplicable
-judgments are retained. Independent evaluation is separate from generation
-latency and cost.
+When resuming, use the same inputs, settings and output directory. The runner checks saved requests and results before reuse. If a request failed with an uncertain charge, check the provider’s records before starting a separate attempt. `result.json` reports execution status. Compare the rendered PNG with the source to assess visual fidelity.

@@ -2,7 +2,7 @@
 
 ## API runner
 
-Use macOS or Linux, Python 3.12 and Node 20+. The factual runner uses POSIX file locking. From the repository root:
+Use Python 3.12 and Node 20 or later on macOS or Linux. From the repository root, install the dependencies and rendering browser.
 
 ```bash
 python3.12 -m venv .venv
@@ -12,18 +12,16 @@ npm ci
 npx playwright install chromium
 ```
 
-Set `OPENAI_API_KEY` in your shell; `.env.example` lists names only. The factual transport reads process environment variables; it does not automatically load `.env` files. Never put keys in JSON configuration or Git. Review all settings in `configs/factual.json`, including budget and recorded price assumptions, before making requests. `configs/historical-cohort.json` retains the historical all-GPT settings for provenance; both public configurations now use that provider assignment.
-
-Use the command in the root README, with `--no-sam` to run without a segmentation service. Skill mode instead uses its own bundled requirements and the calling assistant: see [Skill setup](skill.md).
+Set `OPENAI_API_KEY` in the shell that will start FigFox. The runner reads environment variables from that process. Review the models and budget in `configs/factual.json`, then follow the [quick start](../README.md#quick-start). Its `--no-sam` command works without a segmentation service. For reconstruction inside an assistant, see [Skill setup](skill.md).
 
 ## Optional SAM3
 
-The API runner expects an **existing local SAM3 service** at `http://127.0.0.1:18080`. It calls `POST /v1/segment/proposals` for `picture`, `icon` and `arrow` proposals. Model weights and service deployment are external dependencies, not files shipped in this repository. Only omit `--no-sam` after confirming the service is healthy:
+SAM3 can extract image regions for reuse in the SVG. Request access to [Meta’s official SAM3 model on Hugging Face](https://huggingface.co/facebook/sam3) and obtain the weights under the access conditions and license on the model card. FigFox distributes neither the weights nor a mirror.
+
+Start a compatible local SAM3 service. FigFox uses `POST /v1/segment/proposals` at `http://127.0.0.1:18080`. Check the service before running without `--no-sam`.
 
 ```bash
 curl http://127.0.0.1:18080/health
 ```
 
-One compatible service is the SAM3-only mode of [DrawAI](https://github.com/Renaissance-Mind/DrawAI-dev). Follow its current setup instructions, use legitimately obtained weights, and start its local SAM3 server on the expected port. Service failure stops SAM-assisted preparation rather than silently changing the experimental condition. The separate `scripts/fal_sam3_adapter.py` is an optional external-provider adapter; it is not selected automatically.
-
-For existing browser installations and vector-runtime overrides, see [runtime configuration](runtime-setup.md).
+For an existing browser installation or a vector-runtime override, see [runtime configuration](runtime-setup.md).
