@@ -7,7 +7,7 @@
   <a href="https://github.com/LawrenceRiver/FigFox/tree/main/skills/figfox"><img src="docs/assets/badges/skill.svg" alt="Skill" height="28" /></a>
   <a href="https://github.com/LawrenceRiver/FigFox-Gen-skill"><img src="docs/assets/badges/figfox-gen.svg" alt="FigFox-Gen" height="28" /></a>
   <a href="https://huggingface.co/datasets/FigFoxBench/FigFoxBench-v3"><img src="docs/assets/badges/figfoxbench.svg" alt="FigFoxBench" height="28" /></a>
-  <a href="#video"><img src="docs/assets/badges/video.svg" alt="Video" height="28" /></a>
+  <a href="https://github.com/user-attachments/assets/012fad24-9536-4200-9219-1ad46e6083a8"><img src="docs/assets/badges/video.svg" alt="Video" height="28" /></a>
   <a href="#architecture"><img src="docs/assets/badges/harness.svg" alt="Harness" height="28" /></a>
   <a href="docs/README.zh-CN.md"><img src="docs/assets/badges/chinese.svg" alt="中文" height="28" /></a>
 </p>
@@ -107,7 +107,7 @@ Invoke `$FigFox-Gen-skill` to produce a PNG. To obtain editable SVG, select that
 ## Video
 
 <!-- FIGFOX:VIDEO:START -->
-The demo video is awaiting publication. You can [view the reconstruction examples](#see-the-reconstruction) in the meantime.
+[Watch the FigFox demo](https://github.com/user-attachments/assets/012fad24-9536-4200-9219-1ad46e6083a8) (55 seconds). The demo follows a PNG through reconstruction, compares the SVG draft with the original, then edits a label and a shape’s fill before exporting the SVG.
 <!-- FIGFOX:VIDEO:END -->
 
 ## Evaluation and source
